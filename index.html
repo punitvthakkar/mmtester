@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mirror Mirror</title>
+    <!-- FOSS Font: "Press Start 2P" -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /*
+            Mirror Mirror - v4.0 (Updated Color Themes & Clean UI)
+            --------------------------------------------------------
+            - New custom color themes with proper contrast
+            - Removed ugly drop shadows and vignette clutter
+            - Improved mobile optimization with rem scaling
+            - Clean, modern aesthetic
+        */
+
+        :root {
+            /* Base font size for scaling */
+            font-size: 16px;
+            
+            /* Default Theme: Midnight Garden */
+            --bg-color: #1A237E;
+            --frame-color: #0D1557;
+            --cat1-color: #FFE066;
+            --cat2-color: #7DD3C0;
+            --barrier-color: #FF6B6B;
+            --barrier-blink-color: #FFE066;
+            --food1-color: #FFE066;
+            --food2-color: #7DD3C0;
+            --text-color: #FFE066;
+            --highlight-color: #7DD3C0;
+            --action-color: #FF6B6B;
+            --shadow-color: #000000;
+            --warning-color: #FF6B6B;
+        }
+
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Press Start 2P', cursive;
+            color: var(--text-color);
+            image-rendering: pixelated;
+            transition: background-color 0.5s ease;
+        }
+
+        .game-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        canvas {
+            display: block;
+            background-color: var(--frame-color);
+            box-shadow: 0 0 1.5rem rgba(0,0,0,0.3);
+            transition: background-color 0.5s ease;
+        }
+        
+        /* --- CLEAN UI ELEMENTS (Mobile First with rem units) --- */
+        
+        .game-hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 0.75rem 1rem;
+            padding-top: calc(0.75rem + env(safe-area-inset-top));
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-sizing: border-box;
+            z-index: 10;
+            font-size: 0.75rem;
+            pointer-events: none;
+            /* Clean text - no shadows or gradients */
+            color: var(--text-color);
+        }
+
+        .theme-menu-btn {
+            position: absolute;
+            top: 0.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2rem;
+            height: 2rem;
+            background: var(--action-color);
+            border: 0.125rem solid var(--text-color);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            color: var(--text-color);
+            z-index: 15;
+            pointer-events: auto;
+            transition: all 0.2s ease;
+            box-shadow: 0.125rem 0.125rem 0 var(--shadow-color);
+        }
+
+        .theme-menu-btn:hover {
+            transform: translateX(-50%) scale(1.1);
+            background: var(--highlight-color);
+        }
+
+        .theme-menu-btn:active {
+            transform: translateX(-50%) translate(0.125rem, 0.125rem);
+            box-shadow: none;
+        }
+        
+        .overlay {
+            position: absolute;
+            width: 90%;
+            max-width: 30rem;
+            max-height: 85vh;
+            background-color: var(--frame-color);
+            border: 0.1875rem solid var(--text-color);
+            box-shadow: 0.375rem 0.375rem 0 var(--shadow-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 1rem;
+            z-index: 20;
+            transition: background-color 0.5s ease, border-color 0.5s ease, box-shadow 0.5s ease;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            box-sizing: border-box;
+        }
+
+        #startTitle {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 1rem;
+            font-weight: normal;
+        }
+        .title-main, .title-mirrored {
+            font-size: 2rem;
+            line-height: 1;
+            display: block;
+        }
+        .title-main {
+            color: var(--cat1-color);
+            text-shadow: 0.1875rem 0.1875rem 0 var(--cat2-color);
+            transition: color 0.5s ease, text-shadow 0.5s ease;
+        }
+        .title-mirrored {
+            color: var(--cat2-color);
+            transform: scaleY(-1);
+            opacity: 0.8;
+            background: linear-gradient(var(--cat2-color), transparent);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            transition: color 0.5s ease;
+        }
+
+        #startOverlay p {
+            font-size: 0.6rem;
+            line-height: 1.4;
+            margin-bottom: 1rem;
+            color: var(--text-color);
+            opacity: 0.9;
+        }
+        .start-instruction {
+             font-size: 0.75rem !important;
+             color: var(--highlight-color) !important;
+             animation: blink 1.5s step-end infinite;
+             margin-bottom: 0.5rem !important;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        .theme-selector {
+            margin-bottom: 1rem;
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .theme-selector span {
+            font-size: 0.5rem;
+            margin-right: 0.3rem;
+        }
+        .theme-button {
+            width: 1.75rem;
+            height: 1.75rem;
+            border: 0.125rem solid var(--text-color);
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .theme-button.active {
+            transform: scale(1.2);
+            box-shadow: 0 0 0.9rem var(--highlight-color);
+        }
+        .theme-button:hover {
+            transform: scale(1.1);
+        }
+
+        /* Player Setup Form */
+        .player-setup {
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+
+        .player-setup h3 {
+            font-size: 0.5rem;
+            margin-bottom: 0.6rem;
+            color: var(--highlight-color);
+        }
+
+        .player-name-input {
+            width: 100%;
+            max-width: 18rem;
+            padding: 0.5rem;
+            margin-bottom: 0.6rem;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.45rem;
+            background: var(--bg-color);
+            border: 0.125rem solid var(--text-color);
+            color: var(--text-color);
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        .player-name-input:focus {
+            outline: none;
+            border-color: var(--highlight-color);
+            box-shadow: 0 0 0.6rem var(--highlight-color);
+        }
+
+        .avatar-selector {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 0.6rem;
+        }
+
+        .avatar-option {
+            width: 2.25rem;
+            height: 2.25rem;
+            border: 0.125rem solid var(--text-color);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+        }
+
+        .avatar-option.selected {
+            border-color: var(--highlight-color);
+            box-shadow: 0 0 0.9rem var(--highlight-color);
+            transform: scale(1.1);
+        }
+
+        .avatar-option:hover {
+            transform: scale(1.05);
+        }
+
+        /* Leaderboard Styles */
+        .leaderboard {
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+
+        .leaderboard h3 {
+            font-size: 0.6rem;
+            margin-bottom: 0.6rem;
+            color: var(--highlight-color);
+        }
+
+        .leaderboard-list {
+            max-height: 10rem;
+            overflow-y: auto;
+            border: 0.125rem solid var(--text-color);
+            background: var(--bg-color);
+            padding: 0.3rem;
+            overscroll-behavior: contain;
+            box-sizing: border-box;
+        }
+
+        .leaderboard-entry {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.2rem 0;
+            border-bottom: 0.0625rem solid var(--text-color);
+            font-size: 0.4rem;
+        }
+
+        .leaderboard-entry:last-child {
+            border-bottom: none;
+        }
+
+        .leaderboard-entry.current-player {
+            background: var(--action-color);
+            color: var(--frame-color);
+            margin: 0 -0.3rem;
+            padding-left: 0.3rem;
+            padding-right: 0.3rem;
+        }
+
+        .leaderboard-rank {
+            font-weight: bold;
+            color: var(--highlight-color);
+        }
+
+        .leaderboard-name {
+            flex: 1;
+            text-align: left;
+            margin-left: 0.3rem;
+        }
+
+        .leaderboard-score {
+            font-weight: bold;
+        }
+
+        .leaderboard-loading {
+            text-align: center;
+            font-size: 0.4rem;
+            opacity: 0.7;
+            padding: 0.6rem;
+        }
+
+        .warning-overlay {
+            position: absolute;
+            bottom: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 5;
+            animation: subtle-pulse 1s ease-in-out;
+            pointer-events: none;
+        }
+
+        .warning-text {
+            background: rgba(255, 107, 107, 0.2);
+            color: var(--text-color);
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.1875rem;
+            font-size: 0.4rem;
+            border: 0.0625rem solid rgba(255, 107, 107, 0.4);
+            backdrop-filter: blur(0.125rem);
+        }
+
+        @keyframes subtle-pulse {
+            0%, 100% { opacity: 0; transform: translateX(-50%) translateY(0.6rem); }
+            30%, 70% { opacity: 0.7; transform: translateX(-50%) translateY(0); }
+        }
+        
+        #gameOverlay h1 {
+            font-size: 1.5rem;
+            color: var(--highlight-color);
+            text-shadow: 0.1875rem 0.1875rem 0 var(--action-color);
+            margin-top: 0;
+            margin-bottom: 1rem;
+        }
+
+        .score-group, .stats-group { 
+            width: 100%; 
+            margin-bottom: 1rem; 
+        }
+        .score-group p, .stats-group p {
+            margin: 0.4rem 0; 
+            font-size: 0.6rem; 
+            display: flex;
+            justify-content: space-between; 
+            width: 100%; 
+            max-width: 20rem;
+            margin-left: auto; 
+            margin-right: auto;
+        }
+        .score-group strong, .stats-group strong { 
+            color: var(--highlight-color); 
+            font-weight: normal; 
+        }
+        .divider {
+            border: none; 
+            height: 0.125rem; 
+            background-color: var(--text-color); 
+            opacity: 0.5;
+            width: 100%; 
+            margin: 0.3rem 0 1rem 0;
+        }
+        .celebration-text {
+            color: var(--action-color) !important; 
+            font-size: 0.7rem !important;
+            justify-content: center !important; 
+            animation: flash 0.5s infinite;
+        }
+        @keyframes flash {
+            0% { opacity: 1; transform: scale(1.05); }
+            50% { opacity: 0.7; transform: scale(1); }
+            100% { opacity: 1; transform: scale(1.05); }
+        }
+
+        #restartButton, #submitScoreButton {
+            margin-top: 0.5rem;
+            padding: 0.6rem;
+            width: 100%;
+            max-width: 14rem;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.7rem;
+            color: var(--text-color);
+            background-color: var(--action-color);
+            border: 0.1875rem solid var(--text-color);
+            box-shadow: 0.1875rem 0.1875rem 0 var(--shadow-color);
+            cursor: pointer;
+            transition: all 0.1s ease-out;
+            position: relative;
+            margin-bottom: 0.3rem;
+            box-sizing: border-box;
+        }
+
+        #submitScoreButton {
+            font-size: 0.6rem;
+            background-color: var(--highlight-color);
+        }
+
+        #submitScoreButton:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #restartButton:active, #submitScoreButton:active { 
+            transform: translate(0.1875rem, 0.1875rem); 
+            box-shadow: none; 
+        }
+
+        .hidden { display: none !important; }
+
+        /* Desktop responsive adjustments */
+        @media (min-width: 48rem) {
+            :root {
+                font-size: 18px; /* Larger base font for desktop */
+            }
+            
+            .game-hud { display: none; }
+            .game-active-cursor { cursor: none; }
+            .title-main, .title-mirrored { font-size: 3rem; }
+            .overlay { 
+                padding: 1.5rem; 
+                max-width: 32rem;
+                max-height: 90vh;
+            }
+            #gameOverlay h1 { font-size: 2.5rem; margin-bottom: 1.5rem; }
+            .score-group p, .stats-group p { font-size: 0.8rem; max-width: 24rem; }
+            .theme-menu-btn { width: 2.5rem; height: 2.5rem; font-size: 1rem; top: 0.6rem; }
+            .theme-button { width: 2rem; height: 2rem; }
+            .avatar-option { width: 2.5rem; height: 2.5rem; font-size: 1rem; }
+            .player-name-input { font-size: 0.6rem; padding: 0.7rem; }
+            .leaderboard-entry { font-size: 0.5rem; }
+            .leaderboard-list { max-height: 12rem; padding: 0.4rem; }
+            #restartButton, #submitScoreButton { 
+                font-size: 0.9rem; 
+                padding: 0.8rem; 
+                max-width: 16rem;
+            }
+            #submitScoreButton { font-size: 0.8rem; }
+            #restartButton:hover, #submitScoreButton:hover {
+                background-color: var(--highlight-color);
+                color: var(--shadow-color);
+                transform: scale(1.02);
+            }
+            #restartButton:active, #submitScoreButton:active {
+                transform: translate(0.125rem, 0.125rem);
+                box-shadow: 0.125rem 0.125rem 0 var(--shadow-color);
+            }
+        }
+
+        /* Small mobile adjustments */
+        @media (max-width: 30rem) {
+            :root {
+                font-size: 14px; /* Smaller base font for small screens */
+            }
+            
+            .title-main, .title-mirrored { font-size: 1.6rem; }
+            #startOverlay p { font-size: 0.55rem; }
+            .start-instruction { font-size: 0.65rem !important; }
+            .overlay { padding: 0.8rem; max-width: 95%; }
+            #gameOverlay h1 { font-size: 1.3rem; margin-bottom: 0.8rem; }
+            .score-group p, .stats-group p { font-size: 0.55rem; }
+            .celebration-text { font-size: 0.6rem !important; }
+            .theme-menu-btn { width: 1.8rem; height: 1.8rem; font-size: 0.7rem; top: 0.4rem; }
+            .warning-text { font-size: 0.45rem; padding: 0.2rem 0.4rem; }
+            .player-name-input { font-size: 0.4rem; padding: 0.4rem; }
+            .leaderboard-entry { font-size: 0.38rem; }
+            .game-hud { font-size: 0.65rem; padding: 0.4rem 0.8rem; }
+            #restartButton, #submitScoreButton {
+                font-size: 0.6rem;
+                padding: 0.5rem;
+                max-width: 12rem;
+            }
+            #submitScoreButton { font-size: 0.55rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-hud">
+            <div class="hud-score">SCORE:000000</div>
+            <div class="hud-chain">CHAIN:x1</div>
+        </div>
+
+        <button class="theme-menu-btn hidden" id="themeMenuBtn" title="Change Theme">🎨</button>
+
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="startOverlay" class="overlay">
+            <h1 id="startTitle">
+                <span class="title-main">Mirror</span>
+                <span class="title-mirrored">Mirror</span>
+            </h1>
+            <p id="startDesc">Control the cat. Eat matching food. Avoid everything else.</p>
+            
+            <div class="player-setup">
+                <h3>Player Setup</h3>
+                <input type="text" class="player-name-input" id="playerNameInput" placeholder="Enter your name" maxlength="20">
+                <div class="avatar-selector">
+                    <div class="avatar-option selected" data-avatar="classic">😸</div>
+                    <div class="avatar-option" data-avatar="happy">😺</div>
+                    <div class="avatar-option" data-avatar="love">😻</div>
+                    <div class="avatar-option" data-avatar="cool">😎</div>
+                    <div class="avatar-option" data-avatar="ninja">🥷</div>
+                </div>
+            </div>
+
+            <div class="leaderboard">
+                <h3>Global Leaderboard</h3>
+                <div class="leaderboard-list" id="startLeaderboard">
+                    <div class="leaderboard-loading">Loading...</div>
+                </div>
+            </div>
+
+            <div class="theme-selector">
+                <span>Theme:</span>
+            </div>
+            <p id="startInstruction" class="start-instruction">TAP TO BEGIN</p>
+        </div>
+
+        <div id="gameOverlay" class="overlay hidden">
+            <h1>GAME OVER</h1>
+            <div class="score-group">
+                <p><span>FINAL SCORE</span> <strong id="finalScore">0</strong></p>
+                <p><span>SESSION HIGH</span> <strong id="sessionHighScoreVal">0</strong></p>
+                <p id="sessionHighMessage" class="hidden celebration-text">NEW SESSION HIGH!</p>
+                <p><span>ALL-TIME HIGH</span> <strong id="allTimeHighScoreVal">0</strong></p>
+                <p id="allTimeHighMessage" class="hidden celebration-text">NEW ALL-TIME HIGH!</p>
+            </div>
+            <hr class="divider">
+            <div class="stats-group">
+                <p><span>HIGHEST CHAIN</span> <strong id="highestChainVal">0</strong></p>
+                <p><span>FOOD EATEN</span> <strong id="nodesAbsorbed">0</strong></p>
+                <p><span>TIME SURVIVED</span> <strong id="timeSurvived">0s</strong></p>
+            </div>
+
+            <button id="submitScoreButton" class="hidden">Submit to Leaderboard</button>
+            
+            <div class="leaderboard">
+                <h3>Global Leaderboard</h3>
+                <div class="leaderboard-list" id="gameOverLeaderboard">
+                    <div class="leaderboard-loading">Loading...</div>
+                </div>
+            </div>
+
+            <div class="theme-selector">
+                <span>Theme:</span>
+            </div>
+            <button id="restartButton">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Supabase Configuration ---
+        const SUPABASE_URL = 'https://deitpndwzsfuxmeuxihc.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlaXRwbmR3enNmdXhtZXV4aWhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NjY2MjcsImV4cCI6MjA2NTQ0MjYyN30.UpIpd5jk2Mb-3No1_MFiLH37pBb-t1iFJSjDxTv-5lw';
+        
+        // Initialize Supabase client
+        let supabase = null;
+        if (SUPABASE_URL !== 'YOUR_SUPABASE_URL_HERE' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY_HERE') {
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
+
+        // --- Canvas and Context Setup ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gameContainer = document.querySelector('.game-container');
+
+        // --- Platform Detection ---
+        const isMobile = () => ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        
+        // --- Player Data ---
+        let playerName = '';
+        let selectedAvatar = 'classic';
+        const avatarEmojis = {
+            classic: '😸',
+            happy: '😺',
+            love: '😻',
+            cool: '😎',
+            ninja: '🥷'
+        };
+
+        // Load saved player data
+        function loadPlayerData() {
+            try {
+                playerName = localStorage.getItem('mirrorMirrorPlayerName') || '';
+                selectedAvatar = localStorage.getItem('mirrorMirrorPlayerAvatar') || 'classic';
+                
+                if (playerName) {
+                    document.getElementById('playerNameInput').value = playerName;
+                }
+                
+                // Update avatar selection
+                document.querySelectorAll('.avatar-option').forEach(option => {
+                    option.classList.toggle('selected', option.dataset.avatar === selectedAvatar);
+                });
+            } catch (e) {
+                console.warn('Could not load player data:', e);
+            }
+        }
+
+        function savePlayerData() {
+            try {
+                localStorage.setItem('mirrorMirrorPlayerName', playerName);
+                localStorage.setItem('mirrorMirrorPlayerAvatar', selectedAvatar);
+            } catch (e) {
+                console.warn('Could not save player data:', e);
+            }
+        }
+
+        // --- Leaderboard Functions ---
+        async function loadLeaderboard(container) {
+            if (!supabase) {
+                container.innerHTML = '<div class="leaderboard-loading">Leaderboard unavailable</div>';
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase
+                    .from('leaderboard')
+                    .select('player_name, score, avatar_style')
+                    .order('score', { ascending: false })
+                    .limit(10);
+
+                if (error) throw error;
+
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="leaderboard-loading">No scores yet!</div>';
+                    return;
+                }
+
+                let html = '';
+                data.forEach((entry, index) => {
+                    const emoji = avatarEmojis[entry.avatar_style] || '😸';
+                    html += `
+                        <div class="leaderboard-entry">
+                            <span class="leaderboard-rank">#${index + 1}</span>
+                            <span class="leaderboard-name">${emoji} ${entry.player_name}</span>
+                            <span class="leaderboard-score">${entry.score}</span>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading leaderboard:', error);
+                container.innerHTML = '<div class="leaderboard-loading">Failed to load</div>';
+            }
+        }
+
+        async function submitScore(name, score, avatar) {
+            if (!supabase || !name.trim() || score <= 0) return false;
+
+            try {
+                const { error } = await supabase
+                    .from('leaderboard')
+                    .insert([
+                        {
+                            player_name: name.trim(),
+                            score: score,
+                            avatar_style: avatar
+                        }
+                    ]);
+
+                if (error) throw error;
+                return true;
+            } catch (error) {
+                console.error('Error submitting score:', error);
+                return false;
+            }
+        }
+
+        // --- Updated Theme Management with New Color Palettes ---
+        const themes = {
+            'MidnightGarden': { 
+                name: 'Midnight Garden', 
+                '--bg-color': '#1A237E', 
+                '--frame-color': '#0D1557', 
+                '--cat1-color': '#FFE066', 
+                '--cat2-color': '#7DD3C0', 
+                '--barrier-color': '#FF6B6B', 
+                '--barrier-blink-color': '#FFE066', 
+                '--food1-color': '#FFE066', 
+                '--food2-color': '#7DD3C0', 
+                '--text-color': '#FFE066', 
+                '--highlight-color': '#7DD3C0', 
+                '--action-color': '#FF6B6B', 
+                '--shadow-color': '#000000',
+                '--warning-color': '#FF6B6B'
+            },
+            'TropicalStorm': { 
+                name: 'Tropical Storm', 
+                '--bg-color': '#800020', 
+                '--frame-color': '#5C0017', 
+                '--cat1-color': '#F48FB1', 
+                '--cat2-color': '#81C784', 
+                '--barrier-color': '#26A69A', 
+                '--barrier-blink-color': '#F48FB1', 
+                '--food1-color': '#F48FB1', 
+                '--food2-color': '#81C784', 
+                '--text-color': '#F48FB1', 
+                '--highlight-color': '#26A69A', 
+                '--action-color': '#81C784', 
+                '--shadow-color': '#000000',
+                '--warning-color': '#26A69A'
+            },
+            'EnchantedSunset': { 
+                name: 'Enchanted Sunset', 
+                '--bg-color': '#4A148C', 
+                '--frame-color': '#330A61', 
+                '--cat1-color': '#F5F5F5', 
+                '--cat2-color': '#CE93D8', 
+                '--barrier-color': '#FFB74D', 
+                '--barrier-blink-color': '#F5F5F5', 
+                '--food1-color': '#F5F5F5', 
+                '--food2-color': '#CE93D8', 
+                '--text-color': '#F5F5F5', 
+                '--highlight-color': '#CE93D8', 
+                '--action-color': '#FFB74D', 
+                '--shadow-color': '#000000',
+                '--warning-color': '#FFB74D'
+            },
+            'CampfireDreams': { 
+                name: 'Campfire Dreams', 
+                '--bg-color': '#004D40', 
+                '--frame-color': '#002F28', 
+                '--cat1-color': '#90CAF9', 
+                '--cat2-color': '#FFAB91', 
+                '--barrier-color': '#E57373', 
+                '--barrier-blink-color': '#90CAF9', 
+                '--food1-color': '#90CAF9', 
+                '--food2-color': '#FFAB91', 
+                '--text-color': '#90CAF9', 
+                '--highlight-color': '#FFAB91', 
+                '--action-color': '#E57373', 
+                '--shadow-color': '#000000',
+                '--warning-color': '#E57373'
+            },
+            'GoldenStorm': { 
+                name: 'Golden Storm', 
+                '--bg-color': '#36454F', 
+                '--frame-color': '#252C32', 
+                '--cat1-color': '#F6E58D', 
+                '--cat2-color': '#E8EAF0', 
+                '--barrier-color': '#FFC107', 
+                '--barrier-blink-color': '#F6E58D', 
+                '--food1-color': '#F6E58D', 
+                '--food2-color': '#E8EAF0', 
+                '--text-color': '#F6E58D', 
+                '--highlight-color': '#E8EAF0', 
+                '--action-color': '#FFC107', 
+                '--shadow-color': '#000000',
+                '--warning-color': '#FFC107'
+            }
+        };
+        let currentTheme = 'MidnightGarden';
+        const LOCAL_STORAGE_KEY_THEME = 'mirrorMirrorTheme';
+
+        function applyTheme(themeName) {
+            const theme = themes[themeName];
+            if (!theme) return;
+            currentTheme = themeName;
+            const root = document.documentElement;
+            for (const [key, value] of Object.entries(theme)) {
+                if (key !== 'name') {
+                    root.style.setProperty(key.replace(/cat/g, 'cat'), value);
+                }
+            }
+            lightcat.color = theme['--food1-color'];
+            darkcat.color = theme['--food2-color'];
+            document.querySelectorAll('.theme-button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.theme === themeName);
+            });
+            try { localStorage.setItem(LOCAL_STORAGE_KEY_THEME, themeName); } catch (e) { console.warn("Could not save theme.", e); }
+        }
+
+        function createThemeSelector() {
+            const containers = document.querySelectorAll('.theme-selector');
+            containers.forEach(container => {
+                // Clear existing buttons (in case we're recreating)
+                const existingButtons = container.querySelectorAll('.theme-button');
+                existingButtons.forEach(btn => btn.remove());
+                
+                Object.values(themes).forEach(theme => {
+                    const btn = document.createElement('button');
+                    btn.className = 'theme-button';
+                    btn.dataset.theme = theme.name.replace(/\s+/g, '');
+                    btn.title = theme.name;
+                    btn.style.background = `linear-gradient(45deg, ${theme['--cat1-color']} 50%, ${theme['--cat2-color']} 50%)`;
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        applyTheme(e.target.dataset.theme);
+                    });
+                    container.appendChild(btn);
+                });
+            });
+        }
+        
+        // --- Game State & High Score Variables ---
+        let isGameStarted = false, isGameOver = false, isAnimatingGameOver = false;
+        let animationFrameId, score = 0, chainMultiplier = 1, highestChainInGame = 0, nodesAbsorbedCount = 0;
+        let startTime = 0, gameDuration = 0, gameOverAnimationStartTime = 0;
+        let gameOverAnimationInfo = { x: 0, y: 0 };
+        let barrierBlinkPhase = 0;
+        const LOCAL_STORAGE_KEY_ALL_TIME_HIGH = 'mirrorMirrorAllTimeHigh';
+        let allTimeHighScore = 0, sessionHighScore = 0;
+        let touchStartX, touchStartY, formStartDragX, formStartDragY;
+        let barrierWarningShown = false;
+        let isGamePaused = false;
+        let scoreSubmitted = false;
+        
+        // Touch gesture handling for overlays
+        let overlayTouchStartY = 0;
+        let overlayTouchStartTime = 0;
+        let overlayScrolling = false;
+        
+        // --- FPS Control for Smooth Gameplay ---
+        const TARGET_FPS = 60;
+        const FRAME_TIME = 1000 / TARGET_FPS;
+        let lastFrameTime = 0;
+        let deltaAccumulator = 0;
+        
+        // --- Game Configuration with rem-based scaling ---
+        let GAME_CONFIG;
+        
+        // Get base font size in pixels for rem calculations
+        function getBaseFontSize() {
+            return parseFloat(getComputedStyle(document.documentElement).fontSize);
+        }
+        
+        const DESKTOP_CONFIG = {
+            CAT_RADIUS_REM: 1.125, // 18px at 16px base font
+            FOOD_RADIUS_REM: 0.5, // 8px at 16px base font
+            FOOD_SPAWN_INTERVAL_MS: 1500,
+            MIN_FOOD_SPAWN_INTERVAL_MS: 300, 
+            FOOD_SPAWN_INTERVAL_DECREMENT_PER_SCORE: 10,
+            SCORE_FOR_BARRIERS: 100, 
+            BARRIER_LINE_WIDTH_REM: 0.25, // 4px at 16px base font
+            BARRIER_COLLISION_TOLERANCE_REM: 0.125, // 2px at 16px base font
+            SCORE_PER_FOOD: 10, 
+            CHAIN_RESET_THRESHOLD_MS: 5000,
+            INITIAL_BARRIER_COUNT: 1, 
+            MAX_BARRIER_COUNT: 4,
+            BARRIER_MIN_LENGTH_REM: 5, // 80px at 16px base font
+            BARRIER_MAX_LENGTH_FACTOR: 0.5,
+            SAFE_DISTANCE_FROM_CATS_REM: 6.25, // 100px at 16px base font
+            BARRIER_INCREMENT_SCORE: 150,
+        };
+        
+        const MOBILE_CONFIG = {
+            CAT_RADIUS_REM: 0.9375, // 15px at 16px base font (80% of desktop)
+            FOOD_RADIUS_REM: 0.4375, // 7px at 16px base font
+            FOOD_SPAWN_INTERVAL_MS: 1500,
+            MIN_FOOD_SPAWN_INTERVAL_MS: 300, 
+            FOOD_SPAWN_INTERVAL_DECREMENT_PER_SCORE: 10,
+            SCORE_FOR_BARRIERS: 100, 
+            BARRIER_LINE_WIDTH_REM: 0.1875, // 3px at 16px base font
+            BARRIER_COLLISION_TOLERANCE_REM: 0.25, // 4px at 16px base font
+            SCORE_PER_FOOD: 10, 
+            CHAIN_RESET_THRESHOLD_MS: 5000,
+            INITIAL_BARRIER_COUNT: 1, 
+            MAX_BARRIER_COUNT: 3,
+            BARRIER_MIN_LENGTH_REM: 3.75, // 60px at 16px base font
+            BARRIER_MAX_LENGTH_FACTOR: 0.3,
+            SAFE_DISTANCE_FROM_CATS_REM: 5.625, // 90px at 16px base font
+            BARRIER_INCREMENT_SCORE: 150,
+        };
+        
+        // Convert rem values to pixels based on current font size
+        function updateGameConfigPixels() {
+            const baseFontSize = getBaseFontSize();
+            const config = isMobile() ? MOBILE_CONFIG : DESKTOP_CONFIG;
+            
+            GAME_CONFIG = {
+                CAT_RADIUS: config.CAT_RADIUS_REM * baseFontSize,
+                FOOD_RADIUS: config.FOOD_RADIUS_REM * baseFontSize,
+                BARRIER_LINE_WIDTH: config.BARRIER_LINE_WIDTH_REM * baseFontSize,
+                BARRIER_COLLISION_TOLERANCE: config.BARRIER_COLLISION_TOLERANCE_REM * baseFontSize,
+                BARRIER_MIN_LENGTH: config.BARRIER_MIN_LENGTH_REM * baseFontSize,
+                SAFE_DISTANCE_FROM_CATS: config.SAFE_DISTANCE_FROM_CATS_REM * baseFontSize,
+                // Copy over non-pixel values
+                FOOD_SPAWN_INTERVAL_MS: config.FOOD_SPAWN_INTERVAL_MS,
+                MIN_FOOD_SPAWN_INTERVAL_MS: config.MIN_FOOD_SPAWN_INTERVAL_MS,
+                FOOD_SPAWN_INTERVAL_DECREMENT_PER_SCORE: config.FOOD_SPAWN_INTERVAL_DECREMENT_PER_SCORE,
+                SCORE_FOR_BARRIERS: config.SCORE_FOR_BARRIERS,
+                SCORE_PER_FOOD: config.SCORE_PER_FOOD,
+                CHAIN_RESET_THRESHOLD_MS: config.CHAIN_RESET_THRESHOLD_MS,
+                INITIAL_BARRIER_COUNT: config.INITIAL_BARRIER_COUNT,
+                MAX_BARRIER_COUNT: config.MAX_BARRIER_COUNT,
+                BARRIER_MAX_LENGTH_FACTOR: config.BARRIER_MAX_LENGTH_FACTOR,
+                BARRIER_INCREMENT_SCORE: config.BARRIER_INCREMENT_SCORE
+            };
+        }
+        
+        // --- Player Cats & Game Objects ---
+        const lightcat = { x: 0, y: 0, radius: 0, color: '' };
+        const darkcat = { x: 0, y: 0, radius: 0, color: '' };
+        const foods = [], barriers = [];
+        let lastFoodSpawnTime = 0, currentSpawnInterval, barriersEnabled = false;
+        let lastFoodAbsorbedTime = 0, chainResetTimer;
+        
+        // --- UI Element Selectors ---
+        const hudScore = document.querySelector('.hud-score'), hudChain = document.querySelector('.hud-chain');
+        const startOverlay = document.getElementById('startOverlay'), gameOverlay = document.getElementById('gameOverlay');
+        const startTitleMain = document.querySelector('#startTitle .title-main'), startDesc = document.getElementById('startDesc'), startInstruction = document.getElementById('startInstruction');
+        const finalScoreSpan = document.getElementById('finalScore'), highestChainValSpan = document.getElementById('highestChainVal');
+        const nodesAbsorbedSpan = document.getElementById('nodesAbsorbed'), timeSurvivedSpan = document.getElementById('timeSurvived');
+        const restartButton = document.getElementById('restartButton'), submitScoreButton = document.getElementById('submitScoreButton');
+        const sessionHighMessage = document.getElementById('sessionHighMessage'), allTimeHighMessage = document.getElementById('allTimeHighMessage');
+        const sessionHighScoreValSpan = document.getElementById('sessionHighScoreVal'), allTimeHighScoreValSpan = document.getElementById('allTimeHighScoreVal');
+        const themeMenuBtn = document.getElementById('themeMenuBtn');
+        const playerNameInput = document.getElementById('playerNameInput');
+        const startLeaderboard = document.getElementById('startLeaderboard');
+        const gameOverLeaderboard = document.getElementById('gameOverLeaderboard');
+        
+        // --- Collision Detection ---
+        function checkCircleCollision(c1, c2) { 
+            const dx = c1.x - c2.x, dy = c1.y - c2.y;
+            return (dx * dx + dy * dy) < (c1.radius + c2.radius) ** 2;
+        }
+        function checkLineCircleCollision(line, circle) {
+            const { x1, y1, x2, y2 } = line; const { x, y, radius } = circle;
+            const r = radius + GAME_CONFIG.BARRIER_COLLISION_TOLERANCE;
+            const len_sq = (x2 - x1) ** 2 + (y2 - y1) ** 2;
+            if (len_sq === 0) return Math.sqrt((x - x1) ** 2 + (y - y1) ** 2) < r;
+            let t = ((x - x1) * (x2 - x1) + (y - y1) * (y2 - y1)) / len_sq;
+            t = Math.max(0, Math.min(1, t));
+            const closestX = x1 + t * (x2 - x1), closestY = y1 + t * (y2 - y1);
+            return ((x - closestX) ** 2 + (y - closestY) ** 2) < r * r;
+        }
+        function isLineTooCloseToCats(x1, y1, x2, y2) {
+            const safeDistance = GAME_CONFIG.SAFE_DISTANCE_FROM_CATS;
+            const line = { x1, y1, x2, y2 };
+            const lightCheck = { x: lightcat.x, y: lightcat.y, radius: safeDistance };
+            const darkCheck = { x: darkcat.x, y: darkcat.y, radius: safeDistance };
+            return checkLineCircleCollision(line, lightCheck) || checkLineCircleCollision(line, darkCheck);
+        }
+
+        // --- Warning system ---
+        function showBarrierWarning() {
+            if (barrierWarningShown) return;
+            barrierWarningShown = true;
+            
+            const warningOverlay = document.createElement('div');
+            warningOverlay.className = 'warning-overlay';
+            warningOverlay.innerHTML = '<div class="warning-text">barriers</div>';
+            gameContainer.appendChild(warningOverlay);
+            
+            setTimeout(() => {
+                if (warningOverlay.parentNode) {
+                    warningOverlay.remove();
+                }
+            }, 1000);
+        }
+
+        // --- Initialization ---
+        function init() {
+            updateGameConfigPixels();
+            lightcat.radius = darkcat.radius = GAME_CONFIG.CAT_RADIUS;
+            ctx.imageSmoothingEnabled = false; 
+            
+            const mobile = isMobile();
+            startTitleMain.textContent = mobile ? "Mirror" : "Mirror"; 
+            startDesc.innerHTML = mobile ? "Touch and drag to move. <br>Your finger won't block the view." : "Use your mouse to control the main cat.<br>Eat matching food and avoid everything else."; 
+            startInstruction.textContent = mobile ? "TAP TO BEGIN" : "CLICK TO BEGIN";
+            
+            // Setup player input handlers
+            setupPlayerInputs();
+            
+            // Setup overlay event handling
+            if (mobile) {
+                setupMobileTouchHandling();
+            } else {
+                startOverlay.addEventListener('click', handleOverlayClick);
+                gameOverlay.addEventListener('click', handleOverlayClick);
+            }
+            
+            if(mobile) {
+                canvas.addEventListener('touchstart', handleTouchStart, { passive: false }); 
+                canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+            } else {
+                canvas.addEventListener('mousemove', handleMouseMove); 
+                window.addEventListener('keydown', handleKeyDown);
+            }
+            
+            createThemeSelector();
+            const savedTheme = localStorage.getItem(LOCAL_STORAGE_KEY_THEME);
+            applyTheme(savedTheme && themes[savedTheme] ? savedTheme : 'MidnightGarden');
+
+            restartButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                startGame();
+            }); 
+
+            submitScoreButton.addEventListener('click', handleSubmitScore);
+
+            themeMenuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                pauseGame();
+            });
+
+            loadPlayerData();
+            loadHighScores(); 
+            loadLeaderboard(startLeaderboard);
+            showStartScreen();
+            
+            // Update config on resize
+            window.addEventListener('resize', () => {
+                updateGameConfigPixels();
+                resizeAndDraw();
+            });
+        }
+
+        // --- Mobile touch handling for overlays ---
+        function setupMobileTouchHandling() {
+            [startOverlay, gameOverlay].forEach(overlay => {
+                overlay.addEventListener('touchstart', (e) => {
+                    const touch = e.touches[0];
+                    overlayTouchStartY = touch.clientY;
+                    overlayTouchStartTime = Date.now();
+                    overlayScrolling = false;
+                }, { passive: true });
+
+                overlay.addEventListener('touchmove', (e) => {
+                    const touch = e.touches[0];
+                    const deltaY = Math.abs(touch.clientY - overlayTouchStartY);
+                    const deltaTime = Date.now() - overlayTouchStartTime;
+                    
+                    // If user moved more than 10px vertically, it's likely a scroll
+                    if (deltaY > 10 && deltaTime > 50) {
+                        overlayScrolling = true;
+                    }
+                }, { passive: true });
+
+                overlay.addEventListener('touchend', (e) => {
+                    // Only trigger overlay click if not scrolling and not on interactive elements
+                    if (!overlayScrolling && 
+                        !e.target.closest('.theme-selector') && 
+                        !e.target.closest('#restartButton') &&
+                        !e.target.closest('#submitScoreButton') &&
+                        !e.target.closest('.player-setup') &&
+                        !e.target.closest('.leaderboard-list')) {
+                        
+                        const deltaTime = Date.now() - overlayTouchStartTime;
+                        // Only treat as tap if it was quick (< 300ms)
+                        if (deltaTime < 300) {
+                            handleOverlayClick(e);
+                        }
+                    }
+                    overlayScrolling = false;
+                }, { passive: false });
+            });
+        }
+
+        function setupPlayerInputs() {
+            // Player name input
+            playerNameInput.addEventListener('input', (e) => {
+                playerName = e.target.value.slice(0, 20);
+                savePlayerData();
+            });
+
+            // Avatar selection
+            document.querySelectorAll('.avatar-option').forEach(option => {
+                option.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    
+                    document.querySelectorAll('.avatar-option').forEach(opt => opt.classList.remove('selected'));
+                    option.classList.add('selected');
+                    selectedAvatar = option.dataset.avatar;
+                    savePlayerData();
+                });
+            });
+        }
+
+        async function handleSubmitScore(e) {
+            e.stopPropagation();
+            e.preventDefault();
+            
+            if (scoreSubmitted || !playerName.trim()) {
+                if (!playerName.trim()) {
+                    alert('Please enter your name first!');
+                }
+                return;
+            }
+
+            submitScoreButton.disabled = true;
+            submitScoreButton.textContent = 'Submitting...';
+
+            const success = await submitScore(playerName, score, selectedAvatar);
+            
+            if (success) {
+                scoreSubmitted = true;
+                submitScoreButton.textContent = 'Score Submitted!';
+                submitScoreButton.style.backgroundColor = 'var(--highlight-color)';
+                
+                setTimeout(() => {
+                    loadLeaderboard(gameOverLeaderboard);
+                }, 500);
+            } else {
+                submitScoreButton.disabled = false;
+                submitScoreButton.textContent = 'Retry Submit';
+                alert('Failed to submit score. Please try again!');
+            }
+        }
+
+        function handleOverlayClick(event) {
+            if (event.target.closest('.theme-selector') || 
+                event.target.closest('#restartButton') ||
+                event.target.closest('#submitScoreButton') ||
+                event.target.closest('.player-setup') ||
+                event.target.closest('.leaderboard')) {
+                return;
+            }
+            
+            event.preventDefault();
+            event.stopPropagation();
+            
+            if (!startOverlay.classList.contains('hidden')) {
+                if (!isGameStarted && !isGameOver) {
+                    if (!playerName.trim()) {
+                        playerNameInput.focus();
+                        return;
+                    }
+                    startGame();
+                } else if (isGamePaused) {
+                    resumeGame();
+                }
+            } else if (!gameOverlay.classList.contains('hidden')) {
+                startGame();
+            }
+        }
+
+        // --- Control Handlers ---
+        function handleMouseMove(event) { 
+            if (isAnimatingGameOver || !isGameStarted || isGameOver || isGamePaused) return; 
+            const r = canvas.getBoundingClientRect(); 
+            lightcat.x = Math.max(GAME_CONFIG.CAT_RADIUS, Math.min(canvas.width - GAME_CONFIG.CAT_RADIUS, event.clientX - r.left)); 
+            lightcat.y = Math.max(GAME_CONFIG.CAT_RADIUS, Math.min(canvas.height - GAME_CONFIG.CAT_RADIUS, event.clientY - r.top)); 
+            updateDarkcatPosition(); 
+        }
+        function handleTouchStart(event) { 
+            event.preventDefault(); 
+            if (isGameOver || !isGameStarted || isAnimatingGameOver || isGamePaused) return; 
+            const touch = event.touches[0]; 
+            touchStartX = touch.clientX; 
+            touchStartY = touch.clientY; 
+            formStartDragX = lightcat.x; 
+            formStartDragY = lightcat.y; 
+        }
+        function handleTouchMove(event) { 
+            event.preventDefault(); 
+            if (isGameOver || !isGameStarted || isAnimatingGameOver || isGamePaused) return; 
+            const touch = event.touches[0]; 
+            const deltaX = touch.clientX - touchStartX, deltaY = touch.clientY - touchStartY; 
+            lightcat.x = Math.max(GAME_CONFIG.CAT_RADIUS, Math.min(canvas.width - GAME_CONFIG.CAT_RADIUS, formStartDragX + deltaX)); 
+            lightcat.y = Math.max(GAME_CONFIG.CAT_RADIUS, Math.min(canvas.height - GAME_CONFIG.CAT_RADIUS, formStartDragY + deltaY)); 
+            updateDarkcatPosition(); 
+        }
+        function handleKeyDown(event) { 
+            if ((isGameOver || isGamePaused) && (event.code === 'Space' || event.code === 'Enter')) { 
+                if (isGamePaused) {
+                    resumeGame();
+                } else {
+                    startGame();
+                }
+                event.preventDefault(); 
+            }
+        }
+
+        // --- Screen & Game State Management ---
+        function showStartScreen() { 
+            startOverlay.classList.remove('hidden'); 
+            gameOverlay.classList.add('hidden'); 
+            themeMenuBtn.classList.add('hidden');
+            isGamePaused = false;
+            if (!isMobile()) gameContainer.classList.remove('game-active-cursor');
+            resizeCanvas(); 
+            lightcat.x = canvas.width / 2; 
+            lightcat.y = canvas.height / 2 - (canvas.height * 0.1); 
+            updateDarkcatPosition(); 
+            draw(); 
+        }
+        
+        function pauseGame() {
+            if (!isGameStarted || isGameOver || isAnimatingGameOver) return;
+            
+            cancelAnimationFrame(animationFrameId);
+            isGamePaused = true;
+            startOverlay.classList.remove('hidden');
+            themeMenuBtn.classList.add('hidden');
+            if (!isMobile()) gameContainer.classList.remove('game-active-cursor');
+        }
+        
+        function resumeGame() {
+            if (!isGamePaused) return;
+            
+            startOverlay.classList.add('hidden'); 
+            themeMenuBtn.classList.remove('hidden');
+            if (!isMobile()) gameContainer.classList.add('game-active-cursor');
+            isGamePaused = false;
+            
+            const currentTime = performance.now();
+            const pauseDuration = currentTime - (lastFoodSpawnTime + currentSpawnInterval);
+            lastFoodSpawnTime = currentTime - Math.max(0, currentSpawnInterval - pauseDuration);
+            
+            lastFrameTime = currentTime;
+            deltaAccumulator = 0;
+            
+            gameLoop();
+        }
+        
+        function startGame() {
+            playerName = playerNameInput.value.trim();
+            if (!playerName) {
+                playerNameInput.focus();
+                return;
+            }
+            savePlayerData();
+
+            cancelAnimationFrame(animationFrameId); 
+            startOverlay.classList.add('hidden'); 
+            gameOverlay.classList.add('hidden'); 
+            themeMenuBtn.classList.remove('hidden');
+            sessionHighMessage.classList.add('hidden'); 
+            allTimeHighMessage.classList.add('hidden'); 
+            if (!isMobile()) gameContainer.classList.add('game-active-cursor');
+            isGameOver = false; 
+            isGameStarted = true; 
+            isAnimatingGameOver = false; 
+            isGamePaused = false;
+            scoreSubmitted = false;
+            score = 0; 
+            chainMultiplier = 1; 
+            highestChainInGame = 0; 
+            nodesAbsorbedCount = 0;
+            foods.length = 0; 
+            barriers.length = 0; 
+            barriersEnabled = false; 
+            barrierWarningShown = false;
+            lastFoodSpawnTime = performance.now(); 
+            currentSpawnInterval = GAME_CONFIG.FOOD_SPAWN_INTERVAL_MS;
+            startTime = performance.now(); 
+            gameDuration = 0; 
+            clearTimeout(chainResetTimer); 
+            lightcat.x = canvas.width / 2; 
+            lightcat.y = canvas.height / 2 - (canvas.height * 0.1);
+            updateDarkcatPosition(); 
+            
+            lastFrameTime = performance.now();
+            deltaAccumulator = 0;
+            
+            gameLoop();
+        }
+        
+        function triggerGameOverAnimation(collidingCat) { 
+            if (isAnimatingGameOver) return; 
+            isAnimatingGameOver = true; 
+            gameOverAnimationStartTime = performance.now(); 
+            gameOverAnimationInfo.x = collidingCat.x; 
+            gameOverAnimationInfo.y = collidingCat.y; 
+            themeMenuBtn.classList.add('hidden');
+            clearTimeout(chainResetTimer); 
+            setTimeout(() => { 
+                isGameOver = true; 
+                isAnimatingGameOver = false; 
+            }, 1000); 
+        }
+        
+        function gameLoop(currentTime = 0) { 
+            if (isGameOver) { 
+                showGameOverScreen(); 
+                return; 
+            } 
+            if (isGamePaused) {
+                return;
+            }
+            
+            const deltaTime = currentTime - lastFrameTime;
+            deltaAccumulator += deltaTime;
+            
+            while (deltaAccumulator >= FRAME_TIME) {
+                if (isAnimatingGameOver) {
+                    // Keep animation smooth during game over
+                } else if (isGameStarted) { 
+                    update(currentTime); 
+                }
+                deltaAccumulator -= FRAME_TIME;
+            }
+            
+            draw();
+            lastFrameTime = currentTime;
+            animationFrameId = requestAnimationFrame(gameLoop); 
+        }
+        
+        function showGameOverScreen() {
+            cancelAnimationFrame(animationFrameId); 
+            gameOverlay.classList.remove('hidden'); 
+            themeMenuBtn.classList.add('hidden');
+            if (!isMobile()) gameContainer.classList.remove('game-active-cursor');
+            finalScoreSpan.textContent = score; 
+            highestChainValSpan.textContent = highestChainInGame; 
+            nodesAbsorbedSpan.textContent = nodesAbsorbedCount; 
+            timeSurvivedSpan.textContent = `${gameDuration}s`;
+            
+            if (score > 0 && playerName.trim() && supabase) {
+                submitScoreButton.classList.remove('hidden');
+                submitScoreButton.disabled = false;
+                submitScoreButton.textContent = 'Submit to Leaderboard';
+                submitScoreButton.style.backgroundColor = 'var(--highlight-color)';
+            } else {
+                submitScoreButton.classList.add('hidden');
+            }
+
+            if (score > sessionHighScore) { 
+                sessionHighScore = score; 
+                sessionHighMessage.classList.remove('hidden'); 
+            }
+            if (score > allTimeHighScore) { 
+                allTimeHighScore = score; 
+                allTimeHighMessage.classList.remove('hidden'); 
+                saveAllTimeHighScore(); 
+            }
+            sessionHighScoreValSpan.textContent = sessionHighScore; 
+            allTimeHighScoreValSpan.textContent = allTimeHighScore;
+            createThemeSelector();
+            loadLeaderboard(gameOverLeaderboard);
+        }
+        
+        // --- Core Game Logic ---
+        function update(currentTime) {
+            gameDuration = Math.floor((currentTime - startTime) / 1000); 
+            barrierBlinkPhase = (currentTime / 500) % 1; 
+            
+            if (currentTime - lastFoodSpawnTime > currentSpawnInterval) { 
+                spawnFood(); 
+                lastFoodSpawnTime = currentTime; 
+                currentSpawnInterval = Math.max(GAME_CONFIG.MIN_FOOD_SPAWN_INTERVAL_MS, currentSpawnInterval - GAME_CONFIG.FOOD_SPAWN_INTERVAL_DECREMENT_PER_SCORE); 
+            }
+            
+            if (currentTime - lastFoodAbsorbedTime > GAME_CONFIG.CHAIN_RESET_THRESHOLD_MS && chainMultiplier > 1) { 
+                chainMultiplier = 1; 
+                clearTimeout(chainResetTimer); 
+            }
+            
+            if (score >= GAME_CONFIG.SCORE_FOR_BARRIERS - 40 && !barrierWarningShown && !barriersEnabled) {
+                showBarrierWarning();
+            }
+            
+            if (score >= GAME_CONFIG.SCORE_FOR_BARRIERS && !barriersEnabled) { 
+                barriersEnabled = true; 
+                spawnBarriers(GAME_CONFIG.INITIAL_BARRIER_COUNT); 
+            } else if (barriersEnabled && barriers.length < GAME_CONFIG.MAX_BARRIER_COUNT) {
+                const nextBarrierScore = GAME_CONFIG.SCORE_FOR_BARRIERS + (barriers.length * GAME_CONFIG.BARRIER_INCREMENT_SCORE);
+                if (score >= nextBarrierScore) {
+                    spawnBarriers(1);
+                }
+            }
