@@ -10,12 +10,12 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         /*
-            Mirror Mirror - v4.0 (Updated Color Themes & Clean UI)
-            --------------------------------------------------------
-            - New custom color themes with proper contrast
-            - Removed ugly drop shadows and vignette clutter
-            - Improved mobile optimization with rem scaling
-            - Clean, modern aesthetic
+            Mirror Mirror - v3.5 (Relative Units & Mobile Optimized)
+            ----------------------------------------------------
+            - Fixed text visibility with proper shadows
+            - Converted all px to rem/em for scalability
+            - Fixed mobile overflow issues
+            - Improved responsive design
         */
 
         :root {
@@ -24,17 +24,17 @@
             
             /* Default Theme: Midnight Garden */
             --bg-color: #1A237E;
-            --frame-color: #0D1557;
-            --cat1-color: #FFE066;
-            --cat2-color: #7DD3C0;
+            --frame-color: #1A237E;
+            --cat1-color: #7DD3C0;
+            --cat2-color: #FF6B6B;
             --barrier-color: #FF6B6B;
-            --barrier-blink-color: #FFE066;
-            --food1-color: #FFE066;
-            --food2-color: #7DD3C0;
+            --barrier-blink-color: #ff8c8c;
+            --food1-color: #7DD3C0;
+            --food2-color: #FF6B6B;
             --text-color: #FFE066;
-            --highlight-color: #7DD3C0;
-            --action-color: #FF6B6B;
-            --shadow-color: #000000;
+            --highlight-color: #FFE066;
+            --action-color: #7DD3C0;
+            --shadow-color: #0c124a;
             --warning-color: #FF6B6B;
         }
 
@@ -62,28 +62,28 @@
         canvas {
             display: block;
             background-color: var(--frame-color);
-            box-shadow: 0 0 1.5rem rgba(0,0,0,0.3);
+            box-shadow: 0 0 1.5rem rgba(0,0,0,0.6);
             transition: background-color 0.5s ease;
         }
         
-        /* --- CLEAN UI ELEMENTS (Mobile First with rem units) --- */
+        /* --- UI ELEMENTS (Mobile First with rem units) --- */
         
         .game-hud {
             position: absolute;
             top: 0;
             left: 0;
             width: 100%;
-            padding: 0.75rem 1rem;
-            padding-top: calc(0.75rem + env(safe-area-inset-top));
+            padding: 0.5rem 1rem;
+            padding-top: calc(0.5rem + env(safe-area-inset-top));
             display: flex;
             justify-content: space-between;
             align-items: center;
+            background: transparent; /* Removed distracting vignette */
             box-sizing: border-box;
             z-index: 10;
             font-size: 0.75rem;
             pointer-events: none;
-            /* Clean text - no shadows or gradients */
-            color: var(--text-color);
+            text-shadow: 0.1rem 0.1rem 0 var(--shadow-color); /* Simplified text shadow for better visibility */
         }
 
         .theme-menu-btn {
@@ -152,6 +152,7 @@
         }
         .title-main {
             color: var(--cat1-color);
+            /* Simplified text shadow */
             text-shadow: 0.1875rem 0.1875rem 0 var(--cat2-color);
             transition: color 0.5s ease, text-shadow 0.5s ease;
         }
@@ -159,7 +160,7 @@
             color: var(--cat2-color);
             transform: scaleY(-1);
             opacity: 0.8;
-            background: linear-gradient(var(--cat2-color), transparent);
+            background: -webkit-linear-gradient(var(--cat2-color), transparent);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             transition: color 0.5s ease;
@@ -347,12 +348,14 @@
         }
 
         .warning-text {
-            background: rgba(255, 107, 107, 0.2);
+            background: rgba(255, 204, 2, 0.2);
             color: var(--text-color);
             padding: 0.2rem 0.4rem;
             border-radius: 0.1875rem;
             font-size: 0.4rem;
-            border: 0.0625rem solid rgba(255, 107, 107, 0.4);
+            /* Simplified text shadow */
+            text-shadow: 0.0625rem 0.0625rem 0 var(--shadow-color);
+            border: 0.0625rem solid rgba(255, 204, 2, 0.4);
             backdrop-filter: blur(0.125rem);
         }
 
@@ -364,6 +367,7 @@
         #gameOverlay h1 {
             font-size: 1.5rem;
             color: var(--highlight-color);
+            /* Simplified text shadow */
             text-shadow: 0.1875rem 0.1875rem 0 var(--action-color);
             margin-top: 0;
             margin-bottom: 1rem;
@@ -702,86 +706,86 @@
             }
         }
 
-        // --- Updated Theme Management with New Color Palettes ---
+        // --- Enhanced Theme Management ---
         const themes = {
-            'MidnightGarden': { 
-                name: 'Midnight Garden', 
-                '--bg-color': '#1A237E', 
-                '--frame-color': '#0D1557', 
-                '--cat1-color': '#FFE066', 
-                '--cat2-color': '#7DD3C0', 
-                '--barrier-color': '#FF6B6B', 
-                '--barrier-blink-color': '#FFE066', 
-                '--food1-color': '#FFE066', 
-                '--food2-color': '#7DD3C0', 
-                '--text-color': '#FFE066', 
-                '--highlight-color': '#7DD3C0', 
-                '--action-color': '#FF6B6B', 
-                '--shadow-color': '#000000',
+            'MidnightGarden': {
+                name: 'Midnight Garden',
+                '--bg-color': '#1A237E', // Deep Navy
+                '--frame-color': '#1A237E',
+                '--cat1-color': '#7DD3C0', // Mermaid Kiss
+                '--cat2-color': '#FF6B6B', // Sunset Blush
+                '--barrier-color': '#FF6B6B',
+                '--barrier-blink-color': '#ff8c8c',
+                '--food1-color': '#7DD3C0',
+                '--food2-color': '#FF6B6B',
+                '--text-color': '#FFE066', // Buttercup Dreams
+                '--highlight-color': '#FFE066',
+                '--action-color': '#7DD3C0',
+                '--shadow-color': '#0c124a',
                 '--warning-color': '#FF6B6B'
             },
-            'TropicalStorm': { 
-                name: 'Tropical Storm', 
-                '--bg-color': '#800020', 
-                '--frame-color': '#5C0017', 
-                '--cat1-color': '#F48FB1', 
-                '--cat2-color': '#81C784', 
-                '--barrier-color': '#26A69A', 
-                '--barrier-blink-color': '#F48FB1', 
-                '--food1-color': '#F48FB1', 
-                '--food2-color': '#81C784', 
-                '--text-color': '#F48FB1', 
-                '--highlight-color': '#26A69A', 
-                '--action-color': '#81C784', 
-                '--shadow-color': '#000000',
-                '--warning-color': '#26A69A'
+            'TropicalStorm': {
+                name: 'Tropical Storm',
+                '--bg-color': '#800020', // Berry Wine
+                '--frame-color': '#800020',
+                '--cat1-color': '#81C784', // Forest Whisper
+                '--cat2-color': '#26A69A', // Tropical Lagoon
+                '--barrier-color': '#F48FB1', // Garden Party
+                '--barrier-blink-color': '#f8b2c9',
+                '--food1-color': '#81C784',
+                '--food2-color': '#26A69A',
+                '--text-color': '#E8EAF0', // Silver Lining (borrowed for readability)
+                '--highlight-color': '#81C784',
+                '--action-color': '#26A69A',
+                '--shadow-color': '#400010',
+                '--warning-color': '#F48FB1'
             },
-            'EnchantedSunset': { 
-                name: 'Enchanted Sunset', 
-                '--bg-color': '#4A148C', 
-                '--frame-color': '#330A61', 
-                '--cat1-color': '#F5F5F5', 
-                '--cat2-color': '#CE93D8', 
-                '--barrier-color': '#FFB74D', 
-                '--barrier-blink-color': '#F5F5F5', 
-                '--food1-color': '#F5F5F5', 
-                '--food2-color': '#CE93D8', 
-                '--text-color': '#F5F5F5', 
-                '--highlight-color': '#CE93D8', 
-                '--action-color': '#FFB74D', 
-                '--shadow-color': '#000000',
-                '--warning-color': '#FFB74D'
+            'EnchantedSunset': {
+                name: 'Enchanted Sunset',
+                '--bg-color': '#4A148C', // Velvet Night
+                '--frame-color': '#4A148C',
+                '--cat1-color': '#FFB74D', // Honey Glow
+                '--cat2-color': '#CE93D8', // Fairy Dust
+                '--barrier-color': '#CE93D8',
+                '--barrier-blink-color': '#e0b6e6',
+                '--food1-color': '#FFB74D',
+                '--food2-color': '#CE93D8',
+                '--text-color': '#F5F5F5', // Cloud Nine
+                '--highlight-color': '#FFB74D',
+                '--action-color': '#FFB74D',
+                '--shadow-color': '#2a0b4f',
+                '--warning-color': '#CE93D8'
             },
-            'CampfireDreams': { 
-                name: 'Campfire Dreams', 
-                '--bg-color': '#004D40', 
-                '--frame-color': '#002F28', 
-                '--cat1-color': '#90CAF9', 
-                '--cat2-color': '#FFAB91', 
-                '--barrier-color': '#E57373', 
-                '--barrier-blink-color': '#90CAF9', 
-                '--food1-color': '#90CAF9', 
-                '--food2-color': '#FFAB91', 
-                '--text-color': '#90CAF9', 
-                '--highlight-color': '#FFAB91', 
-                '--action-color': '#E57373', 
-                '--shadow-color': '#000000',
+            'CampfireDreams': {
+                name: 'Campfire Dreams',
+                '--bg-color': '#004D40', // Deep Emerald
+                '--frame-color': '#004D40',
+                '--cat1-color': '#E57373', // Campfire Spark
+                '--cat2-color': '#FFAB91', // Summer Breeze
+                '--barrier-color': '#E57373',
+                '--barrier-blink-color': '#eb9494',
+                '--food1-color': '#E57373',
+                '--food2-color': '#FFAB91',
+                '--text-color': '#90CAF9', // Morning Sky
+                '--highlight-color': '#FFAB91',
+                '--action-color': '#E57373',
+                '--shadow-color': '#002620',
                 '--warning-color': '#E57373'
             },
-            'GoldenStorm': { 
-                name: 'Golden Storm', 
-                '--bg-color': '#36454F', 
-                '--frame-color': '#252C32', 
-                '--cat1-color': '#F6E58D', 
-                '--cat2-color': '#E8EAF0', 
-                '--barrier-color': '#FFC107', 
-                '--barrier-blink-color': '#F6E58D', 
-                '--food1-color': '#F6E58D', 
-                '--food2-color': '#E8EAF0', 
-                '--text-color': '#F6E58D', 
-                '--highlight-color': '#E8EAF0', 
-                '--action-color': '#FFC107', 
-                '--shadow-color': '#000000',
+            'GoldenStorm': {
+                name: 'Golden Storm',
+                '--bg-color': '#36454F', // Storm Shadow
+                '--frame-color': '#36454F',
+                '--cat1-color': '#FFC107', // Golden Hour
+                '--cat2-color': '#F6E58D', // Stardust
+                '--barrier-color': '#FFC107',
+                '--barrier-blink-color': '#ffd55b',
+                '--food1-color': '#FFC107',
+                '--food2-color': '#F6E58D',
+                '--text-color': '#E8EAF0', // Silver Lining
+                '--highlight-color': '#FFC107',
+                '--action-color': '#F6E58D',
+                '--shadow-color': '#1a2025',
                 '--warning-color': '#FFC107'
             }
         };
@@ -1391,3 +1395,285 @@
                     spawnBarriers(1);
                 }
             }
+            
+            for (let i = foods.length - 1; i >= 0; i--) { 
+                const food = foods[i]; 
+                if (food.type === 'light') { 
+                    if (checkCircleCollision(lightcat, food)) { 
+                        absorbFood(); 
+                        foods.splice(i, 1); 
+                        continue; 
+                    } 
+                    if (checkCircleCollision(darkcat, food)) { 
+                        triggerGameOverAnimation(darkcat); 
+                        return; 
+                    } 
+                } else if (food.type === 'dark') { 
+                    if (checkCircleCollision(darkcat, food)) { 
+                        absorbFood(); 
+                        foods.splice(i, 1); 
+                        continue; 
+                    } 
+                    if (checkCircleCollision(lightcat, food)) { 
+                        triggerGameOverAnimation(lightcat); 
+                        return; 
+                    } 
+                } 
+            }
+            
+            for (const b of barriers) { 
+                if (checkLineCircleCollision(b, lightcat)) { 
+                    triggerGameOverAnimation(lightcat); 
+                    return; 
+                } 
+                if (checkLineCircleCollision(b, darkcat)) { 
+                    triggerGameOverAnimation(darkcat); 
+                    return; 
+                } 
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+            const theme = themes[currentTheme];
+            
+            if (barriers.length > 0) { 
+                const blinkIntensity = Math.sin(barrierBlinkPhase * Math.PI * 2) * 0.5 + 0.5; 
+                ctx.strokeStyle = blendColors(theme['--barrier-color'], theme['--barrier-blink-color'], blinkIntensity); 
+                ctx.lineWidth = GAME_CONFIG.BARRIER_LINE_WIDTH; 
+                for (const b of barriers) { 
+                    ctx.beginPath(); 
+                    ctx.moveTo(b.x1, b.y1); 
+                    ctx.lineTo(b.x2, b.y2); 
+                    ctx.stroke(); 
+                } 
+            }
+            
+            for (const f of foods) { 
+                ctx.fillStyle = f.color; 
+                ctx.beginPath(); 
+                ctx.arc(f.x, f.y, f.radius, 0, 2 * Math.PI); 
+                ctx.fill(); 
+            }
+            
+            drawCat(darkcat); 
+            drawCat(lightcat);
+            
+            if (isGameStarted && !isGameOver && !isAnimatingGameOver && !isGamePaused) { 
+                if (isMobile()) { 
+                    hudScore.textContent = `SCORE:${String(score).padStart(6, '0')}`; 
+                    hudChain.textContent = `CHAIN:x${chainMultiplier}`; 
+                } else { 
+                    ctx.fillStyle = theme['--text-color']; 
+                    ctx.font = `${getBaseFontSize()}px "Press Start 2P"`; 
+                    ctx.textAlign = 'left'; 
+                    // Removed canvas shadow from score for clarity. The shadow is now handled by the .game-hud CSS for mobile
+                    ctx.fillText(`SCORE:${String(score).padStart(6, '0')}`, getBaseFontSize() * 1.25, getBaseFontSize() * 1.875); 
+                    ctx.textAlign = 'right'; 
+                    ctx.fillText(`CHAIN:x${chainMultiplier}`, canvas.width - getBaseFontSize() * 1.25, getBaseFontSize() * 1.875); 
+                    // Reset shadow
+                    ctx.shadowColor = 'transparent'; // Ensure shadow is off for other elements
+                }
+            }
+            
+            if (isAnimatingGameOver) { 
+                const elapsed = performance.now() - gameOverAnimationStartTime, progress = Math.min(elapsed / 1000, 1), alpha = Math.abs(Math.sin(progress * Math.PI * 4)); 
+                ctx.fillStyle = `${theme['--action-color']}60`; 
+                ctx.strokeStyle = `${theme['--highlight-color']}${Math.round(alpha*255).toString(16).padStart(2, '0')}`; 
+                ctx.lineWidth = getBaseFontSize() * 0.25; 
+                ctx.beginPath(); 
+                ctx.arc(gameOverAnimationInfo.x, gameOverAnimationInfo.y, getBaseFontSize() * 3.75 * progress, 0, 2 * Math.PI); 
+                ctx.fill(); 
+                ctx.stroke(); 
+            }
+        }
+
+        /**
+         * Procedurally draws a cute cat face using rem-based scaling.
+         */
+        function drawCat(cat) {
+            const { x, y, radius, color } = cat;
+            const theme = themes[currentTheme];
+            ctx.save(); 
+            ctx.translate(x, y);
+
+            const headColor = color;
+            const noseColor = theme['--action-color'];
+
+            // Ears
+            const earHeight = radius * 0.6; 
+            const earWidth = radius * 0.5;
+            const earX = radius * 0.55; 
+            const earY = -radius * 0.6;
+            ctx.fillStyle = headColor;
+            ctx.beginPath(); // Left ear
+            ctx.moveTo(-earX, earY); 
+            ctx.lineTo(-earX - earWidth, earY); 
+            ctx.lineTo(-earX, earY - earHeight); 
+            ctx.closePath(); 
+            ctx.fill();
+            ctx.beginPath(); // Right ear
+            ctx.moveTo(earX, earY); 
+            ctx.lineTo(earX + earWidth, earY); 
+            ctx.lineTo(earX, earY - earHeight); 
+            ctx.closePath(); 
+            ctx.fill();
+            
+            // Head
+            ctx.fillStyle = headColor; 
+            ctx.beginPath(); 
+            ctx.arc(0, 0, radius, 0, Math.PI * 2); 
+            ctx.fill();
+
+            // Eyes
+            const eyeRadiusX = radius * 0.25; 
+            const eyeRadiusY = radius * 0.35;
+            const eyeY = -radius * 0.2; 
+            const eyeX = radius * 0.4;
+            ctx.fillStyle = '#000000';
+            ctx.beginPath(); 
+            ctx.ellipse(eyeX, eyeY, eyeRadiusX, eyeRadiusY, 0, 0, Math.PI * 2); 
+            ctx.fill();
+            ctx.beginPath(); 
+            ctx.ellipse(-eyeX, eyeY, eyeRadiusX, eyeRadiusY, 0, 0, Math.PI * 2); 
+            ctx.fill();
+
+            // Eye Shine
+            ctx.fillStyle = '#FFFFFF';
+            const shineRadius = radius * 0.1;
+            ctx.beginPath(); 
+            ctx.arc(eyeX + eyeRadiusX * 0.2, eyeY - eyeRadiusY * 0.4, shineRadius, 0, Math.PI * 2); 
+            ctx.fill();
+            ctx.beginPath(); 
+            ctx.arc(-eyeX + eyeRadiusX * 0.2, eyeY - eyeRadiusY * 0.4, shineRadius, 0, Math.PI * 2); 
+            ctx.fill();
+
+            // Nose
+            const noseSize = radius * 0.2; 
+            const noseY = radius * 0.25;
+            ctx.fillStyle = noseColor; 
+            ctx.beginPath();
+            ctx.moveTo(0, noseY - noseSize/2); 
+            ctx.lineTo(noseSize, noseY + noseSize/2); 
+            ctx.lineTo(-noseSize, noseY + noseSize/2); 
+            ctx.closePath(); 
+            ctx.fill();
+            
+            // Whiskers
+            ctx.strokeStyle = blendColors(headColor, '#000000', 0.4); 
+            ctx.lineWidth = Math.max(1, radius * 0.05);
+            const whiskerY = radius * 0.3; 
+            const whiskerLen = radius * 0.6;
+            for(let i = -1; i <= 1; i++){
+                if(i === 0) continue;
+                ctx.beginPath(); 
+                ctx.moveTo(i * radius * 0.3, whiskerY); 
+                ctx.lineTo(i * (radius * 0.3 + whiskerLen), whiskerY - radius * 0.1); 
+                ctx.stroke();
+                ctx.beginPath(); 
+                ctx.moveTo(i * radius * 0.3, whiskerY + radius * 0.15); 
+                ctx.lineTo(i * (radius * 0.3 + whiskerLen), whiskerY + radius * 0.15); 
+                ctx.stroke();
+            }
+
+            ctx.restore();
+        }
+
+        function blendColors(c1, c2, ratio) { 
+            const F = (h) => parseInt(h, 16), T = (d) => d.toString(16).padStart(2,'0'); 
+            const R1=F(c1.slice(1,3)),G1=F(c1.slice(3,5)),B1=F(c1.slice(5,7)); 
+            const R2=F(c2.slice(1,3)),G2=F(c2.slice(3,5)),B2=F(c2.slice(5,7)); 
+            const R=Math.round(R1+(R2-R1)*ratio),G=Math.round(G1+(G2-G1)*ratio),B=Math.round(B1+(B2-B1)*ratio); 
+            return `#${T(R)}${T(G)}${T(B)}`; 
+        }
+
+        // --- Utility Functions ---
+        function resizeAndDraw() { 
+            resizeCanvas(); 
+            if (!isGameOver && !isGamePaused) { 
+                updateDarkcatPosition(); 
+                draw(); 
+            } 
+        }
+        function resizeCanvas() { 
+            canvas.width = Math.round(window.innerWidth * 0.98); 
+            canvas.height = Math.round(window.innerHeight * 0.98); 
+        }
+        function updateDarkcatPosition() { 
+            darkcat.x = canvas.width - lightcat.x; 
+            darkcat.y = canvas.height - lightcat.y; 
+        }
+        function spawnFood() { 
+            const type = Math.random() < 0.5 ? 'light' : 'dark'; 
+            const theme = themes[currentTheme];
+            const color = (type === 'light') ? theme['--food1-color'] : theme['--food2-color']; 
+            let x, y; 
+            do { 
+                x = Math.random()*(canvas.width - 2*GAME_CONFIG.FOOD_RADIUS) + GAME_CONFIG.FOOD_RADIUS; 
+                y = Math.random()*(canvas.height - 2*GAME_CONFIG.FOOD_RADIUS) + GAME_CONFIG.FOOD_RADIUS; 
+            } while (isPositionInsideBarrier(x, y, GAME_CONFIG.FOOD_RADIUS)); 
+            foods.push({ x, y, radius: GAME_CONFIG.FOOD_RADIUS, type, color }); 
+        }
+        function spawnBarriers(count) { 
+            const maxAttempts = 50; 
+            for (let i = 0; i < count; i++) { 
+                let attempts = 0, valid = false, x1, y1, x2, y2; 
+                while (!valid && attempts < maxAttempts) { 
+                    const minL = GAME_CONFIG.BARRIER_MIN_LENGTH, maxL = Math.min(canvas.width, canvas.height) * GAME_CONFIG.BARRIER_MAX_LENGTH_FACTOR; 
+                    const padding = GAME_CONFIG.CAT_RADIUS * 2 + getBaseFontSize() * 0.625; 
+                    if (Math.random() < 0.5) { 
+                        y1 = y2 = Math.random()*(canvas.height - 2*padding) + padding; 
+                        x1 = Math.random()*(canvas.width - minL - 2*padding) + padding; 
+                        x2 = x1 + Math.random()*(maxL - minL) + minL; 
+                    } else { 
+                        x1 = x2 = Math.random()*(canvas.width - 2*padding) + padding; 
+                        y1 = Math.random()*(canvas.height - minL - 2*padding) + padding; 
+                        y2 = y1 + Math.random()*(maxL - minL) + minL; 
+                    } 
+                    if (!isLineTooCloseToCats(x1, y1, x2, y2)) { 
+                        valid = true; 
+                        barriers.push({x1, y1, x2, y2}); 
+                    } 
+                    attempts++; 
+                } 
+                if (!valid) console.warn('Could not find safe position for barrier.'); 
+            } 
+        }
+        function isPositionInsideBarrier(px, py, r) { 
+            for(const b of barriers) { 
+                if (checkLineCircleCollision(b, {x: px, y: py, radius: r})) return true; 
+            } 
+            return false; 
+        }
+        function absorbFood() { 
+            nodesAbsorbedCount++; 
+            lastFoodAbsorbedTime = performance.now(); 
+            clearTimeout(chainResetTimer); 
+            chainMultiplier++; 
+            if (chainMultiplier > highestChainInGame) highestChainInGame = chainMultiplier; 
+            score += GAME_CONFIG.SCORE_PER_FOOD * chainMultiplier; 
+            chainResetTimer = setTimeout(() => { 
+                if (!isGameOver && !isAnimatingGameOver && !isGamePaused) chainMultiplier = 1; 
+            }, GAME_CONFIG.CHAIN_RESET_THRESHOLD_MS); 
+        }
+        function loadHighScores() { 
+            try { 
+                const s=localStorage.getItem(LOCAL_STORAGE_KEY_ALL_TIME_HIGH); 
+                if(s) allTimeHighScore=parseInt(s,10); 
+            } catch(e) { 
+                console.error(e); 
+            } 
+            sessionHighScore = 0; 
+        }
+        function saveAllTimeHighScore() { 
+            try { 
+                localStorage.setItem(LOCAL_STORAGE_KEY_ALL_TIME_HIGH, allTimeHighScore.toString()); 
+            } catch(e) { 
+                console.error(e); 
+            } 
+        }
+        
+        window.onload = init;
+    </script>
+</body>
+</html>
