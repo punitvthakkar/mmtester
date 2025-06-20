@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -12,12 +10,12 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         /*
-            Mirror Mirror - v5.2 (Critical Crash Fix)
+            Mirror Mirror - v5.3 (GitHub Pages Fix)
             ----------------------------------------------------------------
-            - FIXED: Restored blendColors utility function, fixing crash when barriers appear.
-            - Vector character art now correctly uses theme colors.
-            - Barrier lethality is now correctly implemented.
-            - Particle effects now emit from the correct character.
+            - FIXED: Canvas scaling issues for all browsers
+            - FIXED: Event handling for mobile devices
+            - FIXED: Font fallbacks for better compatibility
+            - FIXED: Supabase error handling
         */
 
         :root {
@@ -37,10 +35,11 @@
             margin: 0;
             overflow: hidden;
             background-color: var(--bg-color);
-            font-family: 'Press Start 2P', cursive;
+            font-family: 'Press Start 2P', 'Courier New', monospace;
             color: var(--light-color);
             image-rendering: pixelated;
             transition: background-color 0.3s ease;
+            touch-action: none;
         }
 
         .game-container {
@@ -50,6 +49,7 @@
             justify-content: center;
             align-items: center;
             position: relative;
+            touch-action: none;
         }
 
         canvas {
@@ -57,6 +57,7 @@
             background-color: var(--bg-color);
             box-shadow: 0 0 1.5rem rgba(0,0,0,0.8);
             transition: background-color 0.3s ease;
+            touch-action: none;
         }
         
         /* --- UI ELEMENTS (Mobile First with rem units) --- */
@@ -155,6 +156,7 @@
             background: linear-gradient(var(--barrier-color), transparent);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
+            background-clip: text;
             transition: all 0.3s ease;
         }
 
@@ -218,7 +220,7 @@
             max-width: 18rem;
             padding: 0.5rem;
             margin-bottom: 0.6rem;
-            font-family: 'Press Start 2P', cursive;
+            font-family: 'Press Start 2P', 'Courier New', monospace;
             font-size: 0.45rem;
             background: var(--bg-color);
             border: 0.125rem solid var(--light-color);
@@ -411,7 +413,7 @@
             padding: 0.6rem;
             width: 100%;
             max-width: 14rem;
-            font-family: 'Press Start 2P', cursive;
+            font-family: 'Press Start 2P', 'Courier New', monospace;
             font-size: 0.7rem;
             color: var(--bg-color);
             background-color: var(--light-color);
@@ -559,8 +561,7 @@
                 <p><span>FOOD EATEN</span> <strong id="nodesAbsorbed">0</strong></p>
                 <p><span>TIME SURVIVED</span> <strong id="timeSurvived">0s</strong></p>
             </div>
-
-            <button id="submitScoreButton" class="hidden">Submit to Leaderboard</button>
+ <button id="submitScoreButton" class="hidden">Submit to Leaderboard</button>
             
             <div class="leaderboard">
                 <h3>Global Leaderboard</h3>
@@ -577,14 +578,22 @@
     </div>
 
     <script>
-        // --- Supabase Configuration ---
+        // --- Supabase Configuration with Error Handling ---
         const SUPABASE_URL = 'https://deitpndwzsfuxmeuxihc.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlaXRwbmR3enNmdXhtZXV4aWhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NjY2MjcsImV4cCI6MjA2NTQ0MjYyN30.UpIpd5jk2Mb-3No1_MFiLH37pBb-t1iFJSjDxTv-5lw';
         
-        // Initialize Supabase client
+        // Initialize Supabase client with better error handling
         let supabase = null;
-        if (SUPABASE_URL !== 'YOUR_SUPABASE_URL_HERE' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY_HERE') {
-            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        let supabaseAvailable = false;
+        
+        try {
+            if (window.supabase && SUPABASE_URL !== 'YOUR_SUPABASE_URL_HERE' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY_HERE') {
+                supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+                supabaseAvailable = true;
+            }
+        } catch (error) {
+            console.warn('Supabase initialization failed:', error);
+            supabaseAvailable = false;
         }
 
         // --- Canvas and Context Setup ---
@@ -593,7 +602,11 @@
         const gameContainer = document.querySelector('.game-container');
 
         // --- Platform Detection ---
-        const isMobile = () => ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        const isMobile = () => {
+            return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                   ('ontouchstart' in window) || 
+                   (navigator.maxTouchPoints > 0);
+        };
         
         // --- Player Data ---
         let playerName = '';
@@ -606,14 +619,15 @@
             bear: '🐻'
         };
 
-        // Load saved player data
+        // Load saved player data with error handling
         function loadPlayerData() {
             try {
                 playerName = localStorage.getItem('mirrorMirrorPlayerName') || '';
                 selectedAvatar = localStorage.getItem('mirrorMirrorPlayerAvatar') || 'cat';
                 
                 if (playerName) {
-                    document.getElementById('playerNameInput').value = playerName;
+                    const input = document.getElementById('playerNameInput');
+                    if (input) input.value = playerName;
                 }
                 
                 // Update avatar selection
@@ -634,9 +648,9 @@
             }
         }
 
-        // --- Leaderboard Functions ---
+        // --- Leaderboard Functions with Better Error Handling ---
         async function loadLeaderboard(container) {
-            if (!supabase) {
+            if (!supabaseAvailable || !supabase) {
                 container.innerHTML = '<div class="leaderboard-loading">Leaderboard unavailable</div>';
                 return;
             }
@@ -648,9 +662,13 @@
                     .order('score', { ascending: false })
                     .limit(10);
 
-                if (error) throw error;
+                if (error) {
+                    console.error('Leaderboard error:', error);
+                    container.innerHTML = '<div class="leaderboard-loading">Failed to load</div>';
+                    return;
+                }
 
-                if (data.length === 0) {
+                if (!data || data.length === 0) {
                     container.innerHTML = '<div class="leaderboard-loading">No scores yet!</div>';
                     return;
                 }
@@ -658,11 +676,13 @@
                 let html = '';
                 data.forEach((entry, index) => {
                     const emoji = avatarEmojis[entry.avatar_style] || '🐱';
+                    const name = entry.player_name || 'Anonymous';
+                    const score = entry.score || 0;
                     html += `
                         <div class="leaderboard-entry">
                             <span class="leaderboard-rank">#${index + 1}</span>
-                            <span class="leaderboard-name">${emoji} ${entry.player_name}</span>
-                            <span class="leaderboard-score">${entry.score}</span>
+                            <span class="leaderboard-name">${emoji} ${name}</span>
+                            <span class="leaderboard-score">${score}</span>
                         </div>
                     `;
                 });
@@ -674,7 +694,7 @@
         }
 
         async function submitScore(name, score, avatar) {
-            if (!supabase || !name.trim() || score <= 0) return false;
+            if (!supabaseAvailable || !supabase || !name.trim() || score <= 0) return false;
 
             try {
                 const { error } = await supabase
@@ -687,7 +707,10 @@
                         }
                     ]);
 
-                if (error) throw error;
+                if (error) {
+                    console.error('Submit score error:', error);
+                    return false;
+                }
                 return true;
             } catch (error) {
                 console.error('Error submitting score:', error);
@@ -695,7 +718,7 @@
             }
         }
 
-        // --- ENHANCED THEME SYSTEM - 20 REFINED DUAL-TONE THEMES ---
+        // --- ENHANCED THEME SYSTEM ---
         const themes = {
             'ClassicBlue': {
                 name: 'Classic Blue',
@@ -736,6 +759,7 @@
             'GoldenYellow': {
                 name: 'Golden Yellow',
                 '--bg-color': '#2e2e1a',
+                ```javascript
                 '--light-color': '#ffcc66',
                 '--barrier-color': '#dba352'
             },
@@ -879,20 +903,20 @@
         let isGamePaused = false;
         let scoreSubmitted = false;
         
-        // NEW: Smooth mouse movement variables
+        // Smooth mouse movement variables
         let targetMouseX = 0, targetMouseY = 0, isMouseControlActive = false;
         const MOUSE_LERP_SPEED = 0.12;
 
-        // NEW: Cursor State Preservation
+        // Cursor State Preservation
         let pausedCatPosition = { x: 0, y: 0 };
         let resumeTransitionActive = false;
         let resumeTransitionStartTime = 0;
-        const RESUME_TRANSITION_DURATION = 800; // ms for smooth transition
+        const RESUME_TRANSITION_DURATION = 800;
         
-        // NEW: Particle System
+        // Particle System
         const particles = [];
         
-        // NEW: Chain timer pause management
+        // Chain timer pause management
         let chainTimerStartTime = 0, chainTimerDuration = 0, chainTimerWasPaused = false;
         
         // Touch gesture handling for overlays
@@ -986,14 +1010,23 @@
         let lastFoodAbsorbedTime = 0, chainResetTimer;
         
         // --- UI Element Selectors ---
-        const hudScore = document.querySelector('.hud-score'), hudChain = document.querySelector('.hud-chain');
-        const startOverlay = document.getElementById('startOverlay'), gameOverlay = document.getElementById('gameOverlay');
-        const startTitleMain = document.querySelector('#startTitle .title-main'), startDesc = document.getElementById('startDesc'), startInstruction = document.getElementById('startInstruction');
-        const finalScoreSpan = document.getElementById('finalScore'), highestChainValSpan = document.getElementById('highestChainVal');
-        const nodesAbsorbedSpan = document.getElementById('nodesAbsorbed'), timeSurvivedSpan = document.getElementById('timeSurvived');
-        const restartButton = document.getElementById('restartButton'), submitScoreButton = document.getElementById('submitScoreButton');
-        const sessionHighMessage = document.getElementById('sessionHighMessage'), allTimeHighMessage = document.getElementById('allTimeHighMessage');
-        const sessionHighScoreValSpan = document.getElementById('sessionHighScoreVal'), allTimeHighScoreValSpan = document.getElementById('allTimeHighScoreVal');
+        const hudScore = document.querySelector('.hud-score');
+        const hudChain = document.querySelector('.hud-chain');
+        const startOverlay = document.getElementById('startOverlay');
+        const gameOverlay = document.getElementById('gameOverlay');
+        const startTitleMain = document.querySelector('#startTitle .title-main');
+        const startDesc = document.getElementById('startDesc');
+        const startInstruction = document.getElementById('startInstruction');
+        const finalScoreSpan = document.getElementById('finalScore');
+        const highestChainValSpan = document.getElementById('highestChainVal');
+        const nodesAbsorbedSpan = document.getElementById('nodesAbsorbed');
+        const timeSurvivedSpan = document.getElementById('timeSurvived');
+        const restartButton = document.getElementById('restartButton');
+        const submitScoreButton = document.getElementById('submitScoreButton');
+        const sessionHighMessage = document.getElementById('sessionHighMessage');
+        const allTimeHighMessage = document.getElementById('allTimeHighMessage');
+        const sessionHighScoreValSpan = document.getElementById('sessionHighScoreVal');
+        const allTimeHighScoreValSpan = document.getElementById('allTimeHighScoreVal');
         const themeMenuBtn = document.getElementById('themeMenuBtn');
         const playerNameInput = document.getElementById('playerNameInput');
         const startLeaderboard = document.getElementById('startLeaderboard');
@@ -1041,32 +1074,44 @@
 
         // --- FIXED CANVAS SYSTEM FOR HIGH-DPI ---
         function resizeCanvas() {
-            const dpr = window.devicePixelRatio || 1;
-            const displayWidth = Math.round(window.innerWidth * 0.98);
-            const displayHeight = Math.round(window.innerHeight * 0.98);
+            const dpr = Math.min(window.devicePixelRatio || 1, 2); // Limit DPR to prevent memory issues
+            const rect = gameContainer.getBoundingClientRect();
+            const displayWidth = Math.floor(rect.width * 0.98);
+            const displayHeight = Math.floor(rect.height * 0.98);
             
+            // Set canvas size
             canvas.width = displayWidth * dpr;
             canvas.height = displayHeight * dpr;
             canvas.style.width = displayWidth + 'px';
             canvas.style.height = displayHeight + 'px';
             
+            // Scale context for high DPI
             ctx.scale(dpr, dpr);
             
             // Store logical dimensions for game calculations
             canvas.logicalWidth = displayWidth;
             canvas.logicalHeight = displayHeight;
+            
+            // Improve rendering quality
+            ctx.imageSmoothingEnabled = false;
+            ctx.textBaseline = 'top';
         }
 
         // --- Initialization ---
         function init() {
             updateGameConfigPixels();
             lightcat.radius = darkcat.radius = GAME_CONFIG.CAT_RADIUS;
-            ctx.imageSmoothingEnabled = false; 
             
             const mobile = isMobile();
-            startTitleMain.textContent = mobile ? "Mirror" : "Mirror"; 
-            startDesc.innerHTML = mobile ? "Touch and drag to move the light character. <br>Dark character mirrors your position." : "Use your mouse to control the light character.<br>Dark character mirrors your moves perfectly."; 
-            startInstruction.textContent = mobile ? "TAP TO BEGIN" : "CLICK TO BEGIN";
+            if (startTitleMain) startTitleMain.textContent = "Mirror"; 
+            if (startDesc) {
+                startDesc.innerHTML = mobile ? 
+                    "Touch and drag to move the light character. <br>Dark character mirrors your position." : 
+                    "Use your mouse to control the light character.<br>Dark character mirrors your moves perfectly.";
+            }
+            if (startInstruction) {
+                startInstruction.textContent = mobile ? "TAP TO BEGIN" : "CLICK TO BEGIN";
+            }
             
             // Setup player input handlers
             setupPlayerInputs();
@@ -1075,8 +1120,8 @@
             if (mobile) {
                 setupMobileTouchHandling();
             } else {
-                startOverlay.addEventListener('click', handleOverlayClick);
-                gameOverlay.addEventListener('click', handleOverlayClick);
+                if (startOverlay) startOverlay.addEventListener('click', handleOverlayClick);
+                if (gameOverlay) gameOverlay.addEventListener('click', handleOverlayClick);
             }
             
             if(mobile) {
@@ -1088,26 +1133,41 @@
             }
             
             createThemeSelector();
-            const savedTheme = localStorage.getItem(LOCAL_STORAGE_KEY_THEME);
-            applyTheme(savedTheme && themes[savedTheme] ? savedTheme : 'ClassicBlue');
+            try {
+                const savedTheme = localStorage.getItem(LOCAL_STORAGE_KEY_THEME);
+                applyTheme(savedTheme && themes[savedTheme] ? savedTheme : 'ClassicBlue');
+            } catch (e) {
+                applyTheme('ClassicBlue');
+            }
 
-            restartButton.addEventListener('click', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                startGame();
-            }); 
+            if (restartButton) {
+                restartButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    startGame();
+                }); 
+            }
 
-            submitScoreButton.addEventListener('click', handleSubmitScore);
+            if (submitScoreButton) {
+                submitScoreButton.addEventListener('click', handleSubmitScore);
+            }
 
-            themeMenuBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                pauseGame();
-            });
+            if (themeMenuBtn) {
+                themeMenuBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    pauseGame();
+                });
+            }
 
             loadPlayerData();
             loadHighScores(); 
-            loadLeaderboard(startLeaderboard);
+            
+            // Load leaderboards with delay to ensure DOM is ready
+            setTimeout(() => {
+                if (startLeaderboard) loadLeaderboard(startLeaderboard);
+            }, 100);
+            
             showStartScreen();
             
             // Update config on resize
@@ -1120,6 +1180,8 @@
         // --- FIXED MOBILE TOUCH HANDLING ---
         function setupMobileTouchHandling() {
             [startOverlay, gameOverlay].forEach(overlay => {
+                if (!overlay) return;
+                
                 overlay.addEventListener('touchstart', (e) => {
                     const touch = e.touches[0];
                     overlayTouchStartY = touch.clientY;
@@ -1131,7 +1193,6 @@
                     const touch = e.touches[0];
                     const deltaY = Math.abs(touch.clientY - overlayTouchStartY);
                     const deltaTime = Date.now() - overlayTouchStartTime;
-                    // More forgiving scroll detection
                     if (deltaY > 25 && deltaTime > 120) {
                         overlayScrolling = true;
                     }
@@ -1143,7 +1204,6 @@
                         
                         const deltaTime = Date.now() - overlayTouchStartTime;
                         const deltaY = Math.abs((e.changedTouches[0]?.clientY || overlayTouchStartY) - overlayTouchStartY);
-                        // Stricter tap detection
                         if (deltaTime < 250 && deltaY < 20) {
                             handleOverlayClick(e);
                         }
@@ -1155,10 +1215,12 @@
 
         function setupPlayerInputs() {
             // Player name input
-            playerNameInput.addEventListener('input', (e) => {
-                playerName = e.target.value.slice(0, 20);
-                savePlayerData();
-            });
+            if (playerNameInput) {
+                playerNameInput.addEventListener('input', (e) => {
+                    playerName = e.target.value.slice(0, 20);
+                    savePlayerData();
+                });
+            }
 
             // Avatar selection
             document.querySelectorAll('.avatar-option').forEach(option => {
@@ -1195,7 +1257,7 @@
                 submitScoreButton.textContent = 'Score Submitted!';
                 
                 setTimeout(() => {
-                    loadLeaderboard(gameOverLeaderboard);
+                    if (gameOverLeaderboard) loadLeaderboard(gameOverLeaderboard);
                 }, 500);
             } else {
                 submitScoreButton.disabled = false;
@@ -1216,17 +1278,17 @@
             event.preventDefault();
             event.stopPropagation();
             
-            if (!startOverlay.classList.contains('hidden')) {
+            if (startOverlay && !startOverlay.classList.contains('hidden')) {
                 if (!isGameStarted && !isGameOver) {
                     if (!playerName.trim()) {
-                        playerNameInput.focus();
+                        if (playerNameInput) playerNameInput.focus();
                         return;
                     }
                     startGame();
                 } else if (isGamePaused) {
                     resumeGame();
                 }
-            } else if (!gameOverlay.classList.contains('hidden')) {
+            } else if (gameOverlay && !gameOverlay.classList.contains('hidden')) {
                 startGame();
             }
         }
@@ -1238,9 +1300,7 @@
             const logicalWidth = canvas.logicalWidth || canvas.width;
             const logicalHeight = canvas.logicalHeight || canvas.height;
             
-            // FIXED: Smooth initial positioning - don't snap to cursor immediately
             if (!isMouseControlActive && !resumeTransitionActive) {
-                // First mouse movement - start smooth transition from current position
                 isMouseControlActive = true;
             }
             
@@ -1254,22 +1314,27 @@
             event.preventDefault(); 
             if (isGameOver || !isGameStarted || isAnimatingGameOver || isGamePaused) return; 
             const touch = event.touches[0]; 
-            touchStartX = touch.clientX; 
-            touchStartY = touch.clientY; 
+            const rect = canvas.getBoundingClientRect();
+            touchStartX = touch.clientX - rect.left; 
+            touchStartY = touch.clientY - rect.top; 
             formStartDragX = lightcat.x; 
             formStartDragY = lightcat.y; 
         }
+        
         function handleTouchMove(event) { 
             event.preventDefault(); 
             if (isGameOver || !isGameStarted || isAnimatingGameOver || isGamePaused) return; 
             const touch = event.touches[0]; 
-            const deltaX = touch.clientX - touchStartX, deltaY = touch.clientY - touchStartY; 
+            const rect = canvas.getBoundingClientRect();
+            const deltaX = (touch.clientX - rect.left) - touchStartX;
+            const deltaY = (touch.clientY - rect.top) - touchStartY; 
             const logicalWidth = canvas.logicalWidth || canvas.width;
             const logicalHeight = canvas.logicalHeight || canvas.height;
             lightcat.x = Math.max(GAME_CONFIG.CAT_RADIUS, Math.min(logicalWidth - GAME_CONFIG.CAT_RADIUS, formStartDragX + deltaX)); 
             lightcat.y = Math.max(GAME_CONFIG.CAT_RADIUS, Math.min(logicalHeight - GAME_CONFIG.CAT_RADIUS, formStartDragY + deltaY)); 
             updateDarkcatPosition(); 
         }
+        
         function handleKeyDown(event) { 
             if ((isGameOver || isGamePaused) && (event.code === 'Space' || event.code === 'Enter')) { 
                 if (isGamePaused) {
@@ -1283,9 +1348,9 @@
 
         // --- Screen & Game State Management ---
         function showStartScreen() { 
-            startOverlay.classList.remove('hidden'); 
-            gameOverlay.classList.add('hidden'); 
-            themeMenuBtn.classList.add('hidden');
+            if (startOverlay) startOverlay.classList.remove('hidden'); 
+            if (gameOverlay) gameOverlay.classList.add('hidden'); 
+            if (themeMenuBtn) themeMenuBtn.classList.add('hidden');
             isGamePaused = false;
             if (!isMobile()) gameContainer.classList.remove('game-active-cursor');
             resizeCanvas(); 
@@ -1301,13 +1366,15 @@
         function pauseGame() {
             if (!isGameStarted || isGameOver || isAnimatingGameOver) return;
             
-            cancelAnimationFrame(animationFrameId);
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+            }
             isGamePaused = true;
             
-            // FIXED: Save cat position for smooth resume
+            // Save cat position for smooth resume
             pausedCatPosition.x = lightcat.x;
             pausedCatPosition.y = lightcat.y;
-            isMouseControlActive = false; // Disable mouse control during pause
+            isMouseControlActive = false;
             
             // Pause chain timer
             if (chainResetTimer && chainTimerStartTime > 0) {
@@ -1317,15 +1384,15 @@
                 chainTimerWasPaused = true;
             }
             
-            startOverlay.classList.remove('hidden');
-            themeMenuBtn.classList.add('hidden');
+            if (startOverlay) startOverlay.classList.remove('hidden');
+            if (themeMenuBtn) themeMenuBtn.classList.add('hidden');
             if (!isMobile()) gameContainer.classList.remove('game-active-cursor');
         }
         
         function resumeGame() {
             if (!isGamePaused) return;
             
-            // FIXED: Start smooth transition from paused position
+            // Start smooth transition from paused position
             lightcat.x = pausedCatPosition.x;
             lightcat.y = pausedCatPosition.y;
             updateDarkcatPosition();
@@ -1342,8 +1409,8 @@
                 }, chainTimerDuration);
             }
             
-            startOverlay.classList.add('hidden'); 
-            themeMenuBtn.classList.remove('hidden');
+            if (startOverlay) startOverlay.classList.add('hidden'); 
+            if (themeMenuBtn) themeMenuBtn.classList.remove('hidden');
             if (!isMobile()) gameContainer.classList.add('game-active-cursor');
             isGamePaused = false;
             
@@ -1355,26 +1422,30 @@
         }
         
         function startGame() {
-            playerName = playerNameInput.value.trim();
-            if (!playerName) {
-                playerNameInput.focus();
-                return;
+            if (playerNameInput) {
+                playerName = playerNameInput.value.trim();
+                if (!playerName) {
+                    playerNameInput.focus();
+                    return;
+                }
             }
             savePlayerData();
 
-            cancelAnimationFrame(animationFrameId); 
-            startOverlay.classList.add('hidden'); 
-            gameOverlay.classList.add('hidden'); 
-            themeMenuBtn.classList.remove('hidden');
-            sessionHighMessage.classList.add('hidden'); 
-            allTimeHighMessage.classList.add('hidden'); 
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId); 
+            }
+            if (startOverlay) startOverlay.classList.add('hidden'); 
+            if (gameOverlay) gameOverlay.classList.add('hidden'); 
+            if (themeMenuBtn) themeMenuBtn.classList.remove('hidden');
+            if (sessionHighMessage) sessionHighMessage.classList.add('hidden'); 
+            if (allTimeHighMessage) allTimeHighMessage.classList.add('hidden'); 
             if (!isMobile()) gameContainer.classList.add('game-active-cursor');
             isGameOver = false; 
             isGameStarted = true; 
             isAnimatingGameOver = false; 
             isGamePaused = false;
             scoreSubmitted = false;
-            isMouseControlActive = false; // FIXED: Reset mouse control state
+            isMouseControlActive = false;
             score = 0; 
             chainMultiplier = 1; 
             highestChainInGame = 0; 
@@ -1384,6 +1455,7 @@
             barriersEnabled = false; 
             barrierWarningShown = false;
             lastFoodSpawnTime = performance.now(); 
+            ```javascript
             currentSpawnInterval = GAME_CONFIG.FOOD_SPAWN_INTERVAL_MS;
             startTime = performance.now(); 
             gameDuration = 0; 
@@ -1406,7 +1478,7 @@
             gameOverAnimationStartTime = performance.now(); 
             gameOverAnimationInfo.x = collidingCat.x; 
             gameOverAnimationInfo.y = collidingCat.y; 
-            themeMenuBtn.classList.add('hidden');
+            if (themeMenuBtn) themeMenuBtn.classList.add('hidden');
             clearTimeout(chainResetTimer); 
             setTimeout(() => { 
                 isGameOver = true; 
@@ -1441,36 +1513,39 @@
         }
         
         function showGameOverScreen() {
-            cancelAnimationFrame(animationFrameId); 
-            gameOverlay.classList.remove('hidden'); 
-            themeMenuBtn.classList.add('hidden');
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId); 
+            }
+            if (gameOverlay) gameOverlay.classList.remove('hidden'); 
+            if (themeMenuBtn) themeMenuBtn.classList.add('hidden');
             if (!isMobile()) gameContainer.classList.remove('game-active-cursor');
-            finalScoreSpan.textContent = score; 
-            highestChainValSpan.textContent = highestChainInGame; 
-            nodesAbsorbedSpan.textContent = nodesAbsorbedCount; 
-            timeSurvivedSpan.textContent = `${gameDuration}s`;
             
-            if (score > 0 && playerName.trim() && supabase) {
+            if (finalScoreSpan) finalScoreSpan.textContent = score; 
+            if (highestChainValSpan) highestChainValSpan.textContent = highestChainInGame; 
+            if (nodesAbsorbedSpan) nodesAbsorbedSpan.textContent = nodesAbsorbedCount; 
+            if (timeSurvivedSpan) timeSurvivedSpan.textContent = `${gameDuration}s`;
+            
+            if (score > 0 && playerName.trim() && supabaseAvailable && submitScoreButton) {
                 submitScoreButton.classList.remove('hidden');
                 submitScoreButton.disabled = false;
                 submitScoreButton.textContent = 'Submit to Leaderboard';
-            } else {
+            } else if (submitScoreButton) {
                 submitScoreButton.classList.add('hidden');
             }
 
             if (score > sessionHighScore) { 
                 sessionHighScore = score; 
-                sessionHighMessage.classList.remove('hidden'); 
+                if (sessionHighMessage) sessionHighMessage.classList.remove('hidden'); 
             }
             if (score > allTimeHighScore) { 
                 allTimeHighScore = score; 
-                allTimeHighMessage.classList.remove('hidden'); 
+                if (allTimeHighMessage) allTimeHighMessage.classList.remove('hidden'); 
                 saveAllTimeHighScore(); 
             }
-            sessionHighScoreValSpan.textContent = sessionHighScore; 
-            allTimeHighScoreValSpan.textContent = allTimeHighScore;
+            if (sessionHighScoreValSpan) sessionHighScoreValSpan.textContent = sessionHighScore; 
+            if (allTimeHighScoreValSpan) allTimeHighScoreValSpan.textContent = allTimeHighScore;
             createThemeSelector();
-            loadLeaderboard(gameOverLeaderboard);
+            if (gameOverLeaderboard) loadLeaderboard(gameOverLeaderboard);
         }
         
         // --- Core Game Logic ---
@@ -1478,7 +1553,7 @@
             gameDuration = Math.floor((currentTime - startTime) / 1000); 
             barrierBlinkPhase = (currentTime / 500) % 1;
             
-            // FIXED: Smooth mouse movement with resume transition
+            // Smooth mouse movement with resume transition
             if (!isMobile()) {
                 if (resumeTransitionActive) {
                     const elapsed = performance.now() - resumeTransitionStartTime;
@@ -1488,8 +1563,7 @@
                         resumeTransitionActive = false;
                         isMouseControlActive = true;
                     } else {
-                        // Smooth transition from paused position to target
-                        const easedProgress = 1 - Math.pow(1 - progress, 3); // Ease out cubic
+                        const easedProgress = 1 - Math.pow(1 - progress, 3);
                         const deltaX = targetMouseX - pausedCatPosition.x;
                         const deltaY = targetMouseY - pausedCatPosition.y;
                         
@@ -1501,9 +1575,6 @@
                         updateDarkcatPosition();
                     }
                 } else if (isMouseControlActive) {
-                    // FIXED: Removed pre-emptive barrier collision check.
-                    // The player can now move "into" a barrier, and the main collision loop
-                    // below will detect it and trigger the game over.
                     const deltaX = targetMouseX - lightcat.x;
                     const deltaY = targetMouseY - lightcat.y;
                     const nextX = lightcat.x + (deltaX * MOUSE_LERP_SPEED);
@@ -1544,7 +1615,7 @@
                 const food = foods[i]; 
                 if (food.type === 'light') { 
                     if (checkCircleCollision(lightcat, food)) { 
-                        absorbFood(lightcat); // FIXED: Pass correct cat
+                        absorbFood(lightcat);
                         foods.splice(i, 1); 
                         continue; 
                     } 
@@ -1554,7 +1625,7 @@
                     } 
                 } else if (food.type === 'dark') { 
                     if (checkCircleCollision(darkcat, food)) { 
-                        absorbFood(darkcat); // FIXED: Pass correct cat
+                        absorbFood(darkcat);
                         foods.splice(i, 1); 
                         continue; 
                     } 
@@ -1578,7 +1649,7 @@
         }
 
         function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+            ctx.clearRect(0, 0, canvas.logicalWidth || canvas.width, canvas.logicalHeight || canvas.height); 
             const theme = themes[currentTheme];
             
             if (barriers.length > 0) { 
@@ -1593,7 +1664,7 @@
                 } 
             }
             
-            // FIXED: Enhanced food visibility
+            // Enhanced food visibility
             for (const f of foods) {
                 if (f.isDark) {
                     const pulseIntensity = Math.sin(performance.now() * 0.005) * 0.3 + 0.7;
@@ -1629,20 +1700,23 @@
             
             if (isGameStarted && !isGameOver && !isAnimatingGameOver && !isGamePaused) { 
                 if (isMobile()) { 
-                    hudScore.textContent = `SCORE:${String(score).padStart(6, '0')}`; 
-                    hudChain.textContent = `CHAIN:x${chainMultiplier}`; 
+                    if (hudScore) hudScore.textContent = `SCORE:${String(score).padStart(6, '0')}`; 
+                    if (hudChain) hudChain.textContent = `CHAIN:x${chainMultiplier}`; 
                 } else { 
                     ctx.fillStyle = theme['--light-color']; 
-                    ctx.font = `${getBaseFontSize()}px "Press Start 2P"`; 
+                    ctx.font = `${getBaseFontSize()}px "Press Start 2P", "Courier New", monospace`; 
                     ctx.textAlign = 'left'; 
                     ctx.fillText(`SCORE:${String(score).padStart(6, '0')}`, getBaseFontSize() * 1.25, getBaseFontSize() * 1.875); 
                     ctx.textAlign = 'right'; 
-                    ctx.fillText(`CHAIN:x${chainMultiplier}`, (canvas.logicalWidth || canvas.width) - getBaseFontSize() * 1.25, getBaseFontSize() * 1.875); 
+                    const logicalWidth = canvas.logicalWidth || canvas.width;
+                    ctx.fillText(`CHAIN:x${chainMultiplier}`, logicalWidth - getBaseFontSize() * 1.25, getBaseFontSize() * 1.875); 
                 }
             }
             
             if (isAnimatingGameOver) { 
-                const elapsed = performance.now() - gameOverAnimationStartTime, progress = Math.min(elapsed / 1000, 1), alpha = Math.abs(Math.sin(progress * Math.PI * 4)); 
+                const elapsed = performance.now() - gameOverAnimationStartTime;
+                const progress = Math.min(elapsed / 1000, 1);
+                const alpha = Math.abs(Math.sin(progress * Math.PI * 4)); 
                 ctx.fillStyle = `${theme['--barrier-color']}60`; 
                 ctx.strokeStyle = `${theme['--light-color']}${Math.round(alpha*255).toString(16).padStart(2, '0')}`; 
                 ctx.lineWidth = getBaseFontSize() * 0.25; 
@@ -1667,8 +1741,15 @@
 
         function updateParticles() {
             for (let i = particles.length - 1; i >= 0; i--) {
-                const p = particles[i]; p.x += p.vx; p.y += p.vy; p.life -= p.decay; p.vx *= 0.98; p.vy *= 0.98;
-                if (p.life <= 0) { particles.splice(i, 1); }
+                const p = particles[i]; 
+                p.x += p.vx; 
+                p.y += p.vy; 
+                p.life -= p.decay; 
+                p.vx *= 0.98; 
+                p.vy *= 0.98;
+                if (p.life <= 0) { 
+                    particles.splice(i, 1); 
+                }
             }
         }
 
@@ -1678,19 +1759,20 @@
                 ctx.save();
                 ctx.globalAlpha = p.life;
                 ctx.fillStyle = p.type === 'food' ? theme['--barrier-color'] : theme['--light-color'];
-                ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2); ctx.fill();
+                ctx.beginPath(); 
+                ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2); 
+                ctx.fill();
                 ctx.restore();
             }
         }
 
-        // --- NEW: SVG-Style Vector Art System ---
+        // --- Vector Art System ---
         function drawVectorAnimal(animal, type, isDark) {
             const { x, y, radius } = animal;
             const theme = themes[currentTheme];
             ctx.save();
             ctx.translate(x, y);
 
-            // FIXED: Use theme colors correctly for fill and accents.
             const fillColor = isDark ? theme['--bg-color'] : theme['--light-color'];
             const accentColor = isDark ? theme['--light-color'] : theme['--bg-color'];
             
@@ -1700,13 +1782,14 @@
                 case 'monkey': drawVectorMonkey(radius, fillColor, accentColor); break;
                 case 'dino': drawVectorDino(radius, fillColor, accentColor); break;
                 case 'bear': drawVectorBear(radius, fillColor, accentColor); break;
+                default: drawVectorCat(radius, fillColor, accentColor); break;
             }
             
             ctx.restore();
         }
 
         function drawVectorCat(radius, fillColor, accentColor) {
-            const s = radius / 100; // Scale factor from 200x200 SVG viewbox
+            const s = radius / 100;
             ctx.lineWidth = s * 4;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
@@ -1714,7 +1797,7 @@
             ctx.fillStyle = fillColor; 
             ctx.strokeStyle = accentColor;
             
-            // Head and Ears as one path
+            // Head and Ears
             ctx.beginPath();
             ctx.moveTo(s*-30, s*-35);
             ctx.quadraticCurveTo(s*-25, s*-45, s*-30, s*-50);
@@ -1728,10 +1811,10 @@
             
             // Features
             ctx.fillStyle = accentColor;
-            ctx.beginPath(); ctx.ellipse(s*-20, s*-15, s*8, s*12, 0, 0, Math.PI*2); ctx.fill(); // Left eye
-            ctx.beginPath(); ctx.ellipse(s*20, s*-15, s*8, s*12, 0, 0, Math.PI*2); ctx.fill(); // Right eye
-            ctx.beginPath(); ctx.moveTo(s*0, s*0); ctx.quadraticCurveTo(s*-5, s*-5, s*0, s*-10); ctx.quadraticCurveTo(s*5, s*-5, s*0, s*0); ctx.closePath(); ctx.fill(); // Nose
-            ctx.beginPath(); ctx.moveTo(s*0, s*-40); ctx.quadraticCurveTo(s*-5, s*-45, s*0, s*-50); ctx.quadraticCurveTo(s*5, s*-45, s*0, s*-40); ctx.closePath(); ctx.fill(); // Forehead
+            ctx.beginPath(); ctx.ellipse(s*-20, s*-15, s*8, s*12, 0, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(s*20, s*-15, s*8, s*12, 0, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(s*0, s*0); ctx.quadraticCurveTo(s*-5, s*-5, s*0, s*-10); ctx.quadraticCurveTo(s*5, s*-5, s*0, s*0); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(s*0, s*-40); ctx.quadraticCurveTo(s*-5, s*-45, s*0, s*-50); ctx.quadraticCurveTo(s*5, s*-45, s*0, s*-40); ctx.closePath(); ctx.fill();
 
             // Highlights & Whiskers
             ctx.fillStyle = fillColor;
@@ -1739,10 +1822,10 @@
             ctx.beginPath(); ctx.ellipse(s*22, s*-18, s*2, s*3, 0, 0, Math.PI*2); ctx.fill();
 
             ctx.strokeStyle = accentColor;
-            ctx.beginPath(); ctx.moveTo(s*0, s*5); ctx.quadraticCurveTo(s*-10, s*15, s*-15, s*10); ctx.stroke(); // Mouth
+            ctx.beginPath(); ctx.moveTo(s*0, s*5); ctx.quadraticCurveTo(s*-10, s*15, s*-15, s*10); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(s*0, s*5); ctx.quadraticCurveTo(s*10, s*15, s*15, s*10); ctx.stroke();
             
-            ctx.beginPath(); ctx.moveTo(s*-70, s*-5); ctx.lineTo(s*-35, s*0); ctx.stroke(); // Whiskers
+            ctx.beginPath(); ctx.moveTo(s*-70, s*-5); ctx.lineTo(s*-35, s*0); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(s*-70, s*5); ctx.lineTo(s*-35, s*5); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(s*-70, s*15); ctx.lineTo(s*-35, s*10); ctx.stroke();
             ctx.beginPath(); ctx.moveTo(s*70, s*-5); ctx.lineTo(s*35, s*0); ctx.stroke();
@@ -1765,9 +1848,9 @@
             
             // Features
             ctx.fillStyle = accentColor;
-            ctx.beginPath(); ctx.arc(s*-20, s*-10, s*8, 0, Math.PI*2); ctx.fill(); // Left eye
-            ctx.beginPath(); ctx.arc(s*20, s*-10, s*8, 0, Math.PI*2); ctx.fill(); // Right eye
-            ctx.beginPath(); ctx.ellipse(0, s*10, s*8, s*10, 0, 0, Math.PI*2); ctx.fill(); // Nose
+            ctx.beginPath(); ctx.arc(s*-20, s*-10, s*8, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(s*20, s*-10, s*8, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(0, s*10, s*8, s*10, 0, 0, Math.PI*2); ctx.fill();
 
             // Mouth
             ctx.strokeStyle = accentColor;
@@ -1789,8 +1872,8 @@
 
             // Face details
             ctx.fillStyle = accentColor;
-            ctx.beginPath(); ctx.arc(s*-20, s*-10, s*8, 0, Math.PI*2); ctx.fill(); // Left eye
-            ctx.beginPath(); ctx.arc(s*20, s*-10, s*8, 0, Math.PI*2); ctx.fill(); // Right eye
+            ctx.beginPath(); ctx.arc(s*-20, s*-10, s*8, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(s*20, s*-10, s*8, 0, Math.PI*2); ctx.fill();
             ctx.strokeStyle = accentColor;
             ctx.beginPath(); ctx.arc(0, s*15, s*20, 0.2, Math.PI-0.2); ctx.stroke();
         }
@@ -1813,7 +1896,7 @@
 
             // Features
             ctx.fillStyle = accentColor;
-            ctx.beginPath(); ctx.arc(s*-25, 0, s*10, 0, Math.PI*2); ctx.fill(); // Eye
+            ctx.beginPath(); ctx.arc(s*-25, 0, s*10, 0, Math.PI*2); ctx.fill();
             ctx.strokeStyle = accentColor;
             ctx.beginPath(); ctx.arc(s*20, s*35, s*25, 0.2, Math.PI-0.2); ctx.stroke();
         }
@@ -1835,13 +1918,12 @@
 
             // Features
             ctx.fillStyle = accentColor;
-            ctx.beginPath(); ctx.arc(s*-25, s*-15, s*7, 0, Math.PI*2); ctx.fill(); // Eyes
+            ctx.beginPath(); ctx.arc(s*-25, s*-15, s*7, 0, Math.PI*2); ctx.fill();
             ctx.beginPath(); ctx.arc(s*25, s*-15, s*7, 0, Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.ellipse(0, s*10, s*12, s*8, 0, 0, Math.PI*2); ctx.fill(); // Nose
+            ctx.beginPath(); ctx.ellipse(0, s*10, s*12, s*8, 0, 0, Math.PI*2); ctx.fill();
         }
 
         // --- Utility Functions ---
-        // FIXED: Restored blendColors function
         function blendColors(c1, c2, ratio) { 
             if (!c1 || !c2 || typeof c1 !== 'string' || typeof c2 !== 'string') {
                 return c1 || c2 || '#ffffff';
@@ -1869,7 +1951,7 @@
             darkcat.y = logicalHeight - lightcat.y; 
         }
         
-        // --- FIXED FOOD SPAWNING WITH SAFE DISTANCE ---
+        // --- Food Spawning ---
         function spawnFood() {
             const type = Math.random() < 0.5 ? 'light' : 'dark';
             const theme = themes[currentTheme];
@@ -1887,7 +1969,7 @@
                 attempts++;
                 
                 if (attempts >= 50) {
-                    lastFoodSpawnTime += 500; // Delay next spawn
+                    lastFoodSpawnTime += 500;
                     return;
                 }
                 
@@ -1915,6 +1997,7 @@
                         x1 = Math.random()*(logicalWidth - minL - 2*padding) + padding; 
                         x2 = x1 + Math.random()*(maxL - minL) + minL; 
                     } else { 
+                    
                         x1 = x2 = Math.random()*(logicalWidth - 2*padding) + padding; 
                         y1 = Math.random()*(logicalHeight - minL - 2*padding) + padding; 
                         y2 = y1 + Math.random()*(maxL - minL) + minL; 
@@ -1928,6 +2011,7 @@
                 if (!valid) console.warn('Could not find safe position for barrier.'); 
             } 
         }
+        
         function isPositionInsideBarrier(px, py, r) { 
             for(const b of barriers) { 
                 if (checkLineCircleCollision(b, {x: px, y: py, radius: r})) return true; 
@@ -1935,9 +2019,9 @@
             return false; 
         }
         
-        // --- FIXED CHAIN SYSTEM WITH PAUSE SUPPORT ---
+        // --- Chain System ---
         function absorbFood(collidingCat) { 
-            // FIXED: Create celebration particles at the correct cat's location
+            // Create celebration particles at the correct cat's location
             for (let i = 0; i < 10; i++) {
                 createParticle(collidingCat.x, collidingCat.y, 'food');
             }
@@ -1960,24 +2044,33 @@
                 }
             }, chainTimerDuration);
         }
+        
         function loadHighScores() { 
             try { 
-                const s=localStorage.getItem(LOCAL_STORAGE_KEY_ALL_TIME_HIGH); 
-                if(s) allTimeHighScore=parseInt(s,10); 
+                const s = localStorage.getItem(LOCAL_STORAGE_KEY_ALL_TIME_HIGH); 
+                if(s) allTimeHighScore = parseInt(s, 10) || 0; 
             } catch(e) { 
-                console.error(e); 
+                console.warn('Could not load high scores:', e); 
             } 
             sessionHighScore = 0; 
         }
+        
         function saveAllTimeHighScore() { 
             try { 
                 localStorage.setItem(LOCAL_STORAGE_KEY_ALL_TIME_HIGH, allTimeHighScore.toString()); 
             } catch(e) { 
-                console.error(e); 
+                console.warn('Could not save high score:', e); 
             } 
         }
         
-        window.onload = init;
+        // Initialize when DOM is ready
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
     </script>
 </body>
 </html>
+
+            
