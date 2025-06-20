@@ -8,6 +8,1989 @@
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <!-- Supabase Client -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Mirror Mirror</title>
+    <!-- FOSS Font: "Press Start 2P" -->
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        /*
+            Mirror Mirror - v5.2 (Critical Crash Fix)
+            ----------------------------------------------------------------
+            - FIXED: Restored blendColors utility function, fixing crash when barriers appear.
+            - Vector character art now correctly uses theme colors.
+            - Barrier lethality is now correctly implemented.
+            - Particle effects now emit from the correct character.
+        */
+
+        :root {
+            /* Base font size for scaling */
+            font-size: 16px;
+            
+            /* Default Theme: Electric Blue */
+            --bg-color: #0a0a0a;
+            --light-color: #00d4ff;
+            --barrier-color: #00a8cc;
+            --barrier-blink-color: #00d4ff;
+        }
+
+        html, body {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            overflow: hidden;
+            background-color: var(--bg-color);
+            font-family: 'Press Start 2P', cursive;
+            color: var(--light-color);
+            image-rendering: pixelated;
+            transition: background-color 0.3s ease;
+        }
+
+        .game-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        canvas {
+            display: block;
+            background-color: var(--bg-color);
+            box-shadow: 0 0 1.5rem rgba(0,0,0,0.8);
+            transition: background-color 0.3s ease;
+        }
+        
+        /* --- UI ELEMENTS (Mobile First with rem units) --- */
+        
+        .game-hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 0.5rem 1rem;
+            padding-top: calc(0.5rem + env(safe-area-inset-top));
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: transparent;
+            box-sizing: border-box;
+            z-index: 10;
+            font-size: 0.75rem;
+            pointer-events: none;
+            text-shadow: 0.1rem 0.1rem 0 var(--bg-color);
+        }
+
+        .theme-menu-btn {
+            position: absolute;
+            top: 0.5rem;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 2rem;
+            height: 2rem;
+            background: var(--light-color);
+            border: 0.125rem solid var(--light-color);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.75rem;
+            color: var(--bg-color);
+            z-index: 15;
+            pointer-events: auto;
+            transition: all 0.2s ease;
+            box-shadow: 0.125rem 0.125rem 0 var(--bg-color);
+        }
+
+        .theme-menu-btn:hover {
+            transform: translateX(-50%) scale(1.1);
+            background: var(--barrier-color);
+        }
+
+        .theme-menu-btn:active {
+            transform: translateX(-50%) translate(0.125rem, 0.125rem);
+            box-shadow: none;
+        }
+        
+        .overlay {
+            position: absolute;
+            width: 90%;
+            max-width: 30rem;
+            max-height: 85vh;
+            background-color: var(--bg-color);
+            border: 0.1875rem solid var(--light-color);
+            box-shadow: 0.375rem 0.375rem 0 var(--light-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            padding: 1rem;
+            z-index: 20;
+            transition: all 0.3s ease;
+            overflow-y: auto;
+            overscroll-behavior: contain;
+            box-sizing: border-box;
+        }
+
+        #startTitle {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 1rem;
+            font-weight: normal;
+        }
+        .title-main, .title-mirrored {
+            font-size: 2rem;
+            line-height: 1;
+            display: block;
+        }
+        .title-main {
+            color: var(--light-color);
+            text-shadow: 0.1875rem 0.1875rem 0 var(--barrier-color);
+            transition: all 0.3s ease;
+        }
+        .title-mirrored {
+            color: var(--barrier-color);
+            transform: scaleY(-1);
+            opacity: 0.8;
+            background: linear-gradient(var(--barrier-color), transparent);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            transition: all 0.3s ease;
+        }
+
+        #startOverlay p {
+            font-size: 0.6rem;
+            line-height: 1.4;
+            margin-bottom: 1rem;
+            color: var(--light-color);
+            opacity: 0.9;
+        }
+        .start-instruction {
+             font-size: 0.75rem !important;
+             color: var(--light-color) !important;
+             animation: blink 1.5s step-end infinite;
+             margin-bottom: 0.5rem !important;
+        }
+        @keyframes blink { 50% { opacity: 0; } }
+
+        .theme-selector {
+            margin-bottom: 1rem;
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .theme-selector span {
+            font-size: 0.5rem;
+            margin-right: 0.3rem;
+        }
+        .theme-button {
+            width: 1.75rem;
+            height: 1.75rem;
+            border: 0.125rem solid var(--light-color);
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            border-radius: 0.25rem;
+        }
+        .theme-button.active {
+            transform: scale(1.2);
+            box-shadow: 0 0 0.9rem var(--light-color);
+        }
+        .theme-button:hover {
+            transform: scale(1.1);
+        }
+
+        /* Player Setup Form */
+        .player-setup {
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+
+        .player-setup h3 {
+            font-size: 0.5rem;
+            margin-bottom: 0.6rem;
+            color: var(--light-color);
+        }
+
+        .player-name-input {
+            width: 100%;
+            max-width: 18rem;
+            padding: 0.5rem;
+            margin-bottom: 0.6rem;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.45rem;
+            background: var(--bg-color);
+            border: 0.125rem solid var(--light-color);
+            color: var(--light-color);
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        .player-name-input:focus {
+            outline: none;
+            border-color: var(--barrier-color);
+            box-shadow: 0 0 0.6rem var(--barrier-color);
+        }
+
+        .avatar-selector {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 0.6rem;
+        }
+
+        .avatar-option {
+            width: 2.25rem;
+            height: 2.25rem;
+            border: 0.125rem solid var(--light-color);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            background: var(--bg-color);
+            color: var(--light-color);
+        }
+
+        .avatar-option.selected {
+            border-color: var(--barrier-color);
+            box-shadow: 0 0 0.9rem var(--barrier-color);
+            transform: scale(1.1);
+            background: var(--light-color);
+            color: var(--bg-color);
+        }
+
+        .avatar-option:hover {
+            transform: scale(1.05);
+        }
+
+        /* Leaderboard Styles */
+        .leaderboard {
+            width: 100%;
+            margin-bottom: 1rem;
+        }
+
+        .leaderboard h3 {
+            font-size: 0.6rem;
+            margin-bottom: 0.6rem;
+            color: var(--light-color);
+        }
+
+        .leaderboard-list {
+            max-height: 10rem;
+            overflow-y: auto;
+            border: 0.125rem solid var(--light-color);
+            background: var(--bg-color);
+            padding: 0.3rem;
+            overscroll-behavior: contain;
+            box-sizing: border-box;
+        }
+
+        .leaderboard-entry {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.2rem 0;
+            border-bottom: 0.0625rem solid var(--light-color);
+            font-size: 0.4rem;
+        }
+
+        .leaderboard-entry:last-child {
+            border-bottom: none;
+        }
+
+        .leaderboard-entry.current-player {
+            background: var(--light-color);
+            color: var(--bg-color);
+            margin: 0 -0.3rem;
+            padding-left: 0.3rem;
+            padding-right: 0.3rem;
+        }
+
+        .leaderboard-rank {
+            font-weight: bold;
+            color: var(--barrier-color);
+        }
+
+        .leaderboard-name {
+            flex: 1;
+            text-align: left;
+            margin-left: 0.3rem;
+        }
+
+        .leaderboard-score {
+            font-weight: bold;
+        }
+
+        .leaderboard-loading {
+            text-align: center;
+            font-size: 0.4rem;
+            opacity: 0.7;
+            padding: 0.6rem;
+        }
+
+        .warning-overlay {
+            position: absolute;
+            bottom: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 5;
+            animation: subtle-pulse 1s ease-in-out;
+            pointer-events: none;
+        }
+
+        .warning-text {
+            background: rgba(255, 0, 100, 0.2);
+            color: var(--light-color);
+            padding: 0.2rem 0.4rem;
+            border-radius: 0.1875rem;
+            font-size: 0.4rem;
+            text-shadow: 0.0625rem 0.0625rem 0 var(--bg-color);
+            border: 0.0625rem solid rgba(255, 0, 100, 0.4);
+            backdrop-filter: blur(0.125rem);
+        }
+
+        @keyframes subtle-pulse {
+            0%, 100% { opacity: 0; transform: translateX(-50%) translateY(0.6rem); }
+            30%, 70% { opacity: 0.7; transform: translateX(-50%) translateY(0); }
+        }
+        
+        #gameOverlay h1 {
+            font-size: 1.5rem;
+            color: var(--light-color);
+            text-shadow: 0.1875rem 0.1875rem 0 var(--barrier-color);
+            margin-top: 0;
+            margin-bottom: 1rem;
+        }
+
+        .score-group, .stats-group { 
+            width: 100%; 
+            margin-bottom: 1rem; 
+        }
+        .score-group p, .stats-group p {
+            margin: 0.4rem 0; 
+            font-size: 0.6rem; 
+            display: flex;
+            justify-content: space-between; 
+            width: 100%; 
+            max-width: 20rem;
+            margin-left: auto; 
+            margin-right: auto;
+        }
+        .score-group strong, .stats-group strong { 
+            color: var(--barrier-color); 
+            font-weight: normal; 
+        }
+        .divider {
+            border: none; 
+            height: 0.125rem; 
+            background-color: var(--light-color); 
+            opacity: 0.5;
+            width: 100%; 
+            margin: 0.3rem 0 1rem 0;
+        }
+        .celebration-text {
+            color: var(--barrier-color) !important; 
+            font-size: 0.7rem !important;
+            justify-content: center !important; 
+            animation: flash 0.5s infinite;
+        }
+        @keyframes flash {
+            0% { opacity: 1; transform: scale(1.05); }
+            50% { opacity: 0.7; transform: scale(1); }
+            100% { opacity: 1; transform: scale(1.05); }
+        }
+
+        #restartButton, #submitScoreButton {
+            margin-top: 0.5rem;
+            padding: 0.6rem;
+            width: 100%;
+            max-width: 14rem;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.7rem;
+            color: var(--bg-color);
+            background-color: var(--light-color);
+            border: 0.1875rem solid var(--light-color);
+            box-shadow: 0.1875rem 0.1875rem 0 var(--barrier-color);
+            cursor: pointer;
+            transition: all 0.1s ease-out;
+            position: relative;
+            margin-bottom: 0.3rem;
+            box-sizing: border-box;
+        }
+
+        #submitScoreButton {
+            font-size: 0.6rem;
+            background-color: var(--barrier-color);
+            border-color: var(--barrier-color);
+        }
+
+        #submitScoreButton:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        #restartButton:active, #submitScoreButton:active { 
+            transform: translate(0.1875rem, 0.1875rem); 
+            box-shadow: none; 
+        }
+
+        .hidden { display: none !important; }
+
+        /* Desktop responsive adjustments */
+        @media (min-width: 48rem) {
+            :root {
+                font-size: 18px;
+            }
+            
+            .game-hud { display: none; }
+            .game-active-cursor { cursor: none; }
+            .title-main, .title-mirrored { font-size: 3rem; }
+            .overlay { 
+                padding: 1.5rem; 
+                max-width: 32rem;
+                max-height: 90vh;
+            }
+            #gameOverlay h1 { font-size: 2.5rem; margin-bottom: 1.5rem; }
+            .score-group p, .stats-group p { font-size: 0.8rem; max-width: 24rem; }
+            .theme-menu-btn { width: 2.5rem; height: 2.5rem; font-size: 1rem; top: 0.6rem; }
+            .theme-button { width: 2rem; height: 2rem; }
+            .avatar-option { width: 2.5rem; height: 2.5rem; font-size: 1rem; }
+            .player-name-input { font-size: 0.6rem; padding: 0.7rem; }
+            .leaderboard-entry { font-size: 0.5rem; }
+            .leaderboard-list { max-height: 12rem; padding: 0.4rem; }
+            #restartButton, #submitScoreButton { 
+                font-size: 0.9rem; 
+                padding: 0.8rem; 
+                max-width: 16rem;
+            }
+            #submitScoreButton { font-size: 0.8rem; }
+            #restartButton:hover, #submitScoreButton:hover {
+                background-color: var(--barrier-color);
+                transform: scale(1.02);
+            }
+            #restartButton:active, #submitScoreButton:active {
+                transform: translate(0.125rem, 0.125rem);
+                box-shadow: 0.125rem 0.125rem 0 var(--barrier-color);
+            }
+        }
+
+        /* Small mobile adjustments - FIXED FOR ACCESSIBILITY */
+        @media (max-width: 30rem) {
+            :root { font-size: 16px; }
+            .title-main, .title-mirrored { font-size: 1.8rem; }
+            #startOverlay p { font-size: 0.7rem; line-height: 1.6; }
+            .start-instruction { font-size: 0.8rem !important; }
+            .overlay { padding: 1rem; max-width: 96%; max-height: 80vh; }
+            #gameOverlay h1 { font-size: 1.6rem; margin-bottom: 1rem; }
+            .score-group p, .stats-group p { font-size: 0.65rem; margin: 0.6rem 0; }
+            
+            /* Critical touch target fixes */
+            .theme-menu-btn { width: 2.75rem; height: 2.75rem; font-size: 0.8rem; }
+            .avatar-option { width: 2.75rem; height: 2.75rem; font-size: 1.1rem; margin: 0.125rem; }
+            .theme-button { width: 2.5rem; height: 2.5rem; margin: 0.125rem; }
+            .player-name-input { font-size: 0.6rem; padding: 0.6rem; min-height: 2.75rem; }
+            .leaderboard-entry { font-size: 0.6rem; padding: 0.4rem 0; }
+            #restartButton, #submitScoreButton { font-size: 0.7rem; padding: 0.8rem; min-height: 2.75rem; }
+            .game-hud { font-size: 0.8rem; padding: 0.6rem 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="game-hud">
+            <div class="hud-score">SCORE:000000</div>
+            <div class="hud-chain">CHAIN:x1</div>
+        </div>
+
+        <button class="theme-menu-btn hidden" id="themeMenuBtn" title="Change Theme">🎨</button>
+
+        <canvas id="gameCanvas"></canvas>
+        
+        <div id="startOverlay" class="overlay">
+            <h1 id="startTitle">
+                <span class="title-main">Mirror</span>
+                <span class="title-mirrored">Mirror</span>
+            </h1>
+            <p id="startDesc">Control the light character. Dark character mirrors your moves. Eat matching food. Avoid everything else.</p>
+            
+            <div class="player-setup">
+                <h3>Player Setup</h3>
+                <input type="text" class="player-name-input" id="playerNameInput" placeholder="Enter your name" maxlength="20">
+                <div class="avatar-selector">
+                    <div class="avatar-option selected" data-avatar="cat">🐱</div>
+                    <div class="avatar-option" data-avatar="monkey">🐵</div>
+                    <div class="avatar-option" data-avatar="dog">🐶</div>
+                    <div class="avatar-option" data-avatar="dino">🦕</div>
+                    <div class="avatar-option" data-avatar="bear">🐻</div>
+                </div>
+            </div>
+
+            <div class="leaderboard">
+                <h3>Global Leaderboard</h3>
+                <div class="leaderboard-list" id="startLeaderboard">
+                    <div class="leaderboard-loading">Loading...</div>
+                </div>
+            </div>
+
+            <div class="theme-selector">
+                <span>Theme:</span>
+            </div>
+            <p id="startInstruction" class="start-instruction">TAP TO BEGIN</p>
+        </div>
+
+        <div id="gameOverlay" class="overlay hidden">
+            <h1>GAME OVER</h1>
+            <div class="score-group">
+                <p><span>FINAL SCORE</span> <strong id="finalScore">0</strong></p>
+                <p><span>SESSION HIGH</span> <strong id="sessionHighScoreVal">0</strong></p>
+                <p id="sessionHighMessage" class="hidden celebration-text">NEW SESSION HIGH!</p>
+                <p><span>ALL-TIME HIGH</span> <strong id="allTimeHighScoreVal">0</strong></p>
+                <p id="allTimeHighMessage" class="hidden celebration-text">NEW ALL-TIME HIGH!</p>
+            </div>
+            <hr class="divider">
+            <div class="stats-group">
+                <p><span>HIGHEST CHAIN</span> <strong id="highestChainVal">0</strong></p>
+                <p><span>FOOD EATEN</span> <strong id="nodesAbsorbed">0</strong></p>
+                <p><span>TIME SURVIVED</span> <strong id="timeSurvived">0s</strong></p>
+            </div>
+
+            <button id="submitScoreButton" class="hidden">Submit to Leaderboard</button>
+            
+            <div class="leaderboard">
+                <h3>Global Leaderboard</h3>
+                <div class="leaderboard-list" id="gameOverLeaderboard">
+                    <div class="leaderboard-loading">Loading...</div>
+                </div>
+            </div>
+
+            <div class="theme-selector">
+                <span>Theme:</span>
+            </div>
+            <button id="restartButton">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // --- Supabase Configuration ---
+        const SUPABASE_URL = 'https://deitpndwzsfuxmeuxihc.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRlaXRwbmR3enNmdXhtZXV4aWhjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk4NjY2MjcsImV4cCI6MjA2NTQ0MjYyN30.UpIpd5jk2Mb-3No1_MFiLH37pBb-t1iFJSjDxTv-5lw';
+        
+        // Initialize Supabase client
+        let supabase = null;
+        if (SUPABASE_URL !== 'YOUR_SUPABASE_URL_HERE' && SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY_HERE') {
+            supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+        }
+
+        // --- Canvas and Context Setup ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const gameContainer = document.querySelector('.game-container');
+
+        // --- Platform Detection ---
+        const isMobile = () => ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+        
+        // --- Player Data ---
+        let playerName = '';
+        let selectedAvatar = 'cat';
+        const avatarEmojis = {
+            cat: '🐱',
+            monkey: '🐵',
+            dog: '🐶',
+            dino: '🦕',
+            bear: '🐻'
+        };
+
+        // Load saved player data
+        function loadPlayerData() {
+            try {
+                playerName = localStorage.getItem('mirrorMirrorPlayerName') || '';
+                selectedAvatar = localStorage.getItem('mirrorMirrorPlayerAvatar') || 'cat';
+                
+                if (playerName) {
+                    document.getElementById('playerNameInput').value = playerName;
+                }
+                
+                // Update avatar selection
+                document.querySelectorAll('.avatar-option').forEach(option => {
+                    option.classList.toggle('selected', option.dataset.avatar === selectedAvatar);
+                });
+            } catch (e) {
+                console.warn('Could not load player data:', e);
+            }
+        }
+
+        function savePlayerData() {
+            try {
+                localStorage.setItem('mirrorMirrorPlayerName', playerName);
+                localStorage.setItem('mirrorMirrorPlayerAvatar', selectedAvatar);
+            } catch (e) {
+                console.warn('Could not save player data:', e);
+            }
+        }
+
+        // --- Leaderboard Functions ---
+        async function loadLeaderboard(container) {
+            if (!supabase) {
+                container.innerHTML = '<div class="leaderboard-loading">Leaderboard unavailable</div>';
+                return;
+            }
+
+            try {
+                const { data, error } = await supabase
+                    .from('leaderboard')
+                    .select('player_name, score, avatar_style')
+                    .order('score', { ascending: false })
+                    .limit(10);
+
+                if (error) throw error;
+
+                if (data.length === 0) {
+                    container.innerHTML = '<div class="leaderboard-loading">No scores yet!</div>';
+                    return;
+                }
+
+                let html = '';
+                data.forEach((entry, index) => {
+                    const emoji = avatarEmojis[entry.avatar_style] || '🐱';
+                    html += `
+                        <div class="leaderboard-entry">
+                            <span class="leaderboard-rank">#${index + 1}</span>
+                            <span class="leaderboard-name">${emoji} ${entry.player_name}</span>
+                            <span class="leaderboard-score">${entry.score}</span>
+                        </div>
+                    `;
+                });
+                container.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading leaderboard:', error);
+                container.innerHTML = '<div class="leaderboard-loading">Failed to load</div>';
+            }
+        }
+
+        async function submitScore(name, score, avatar) {
+            if (!supabase || !name.trim() || score <= 0) return false;
+
+            try {
+                const { error } = await supabase
+                    .from('leaderboard')
+                    .insert([
+                        {
+                            player_name: name.trim(),
+                            score: score,
+                            avatar_style: avatar
+                        }
+                    ]);
+
+                if (error) throw error;
+                return true;
+            } catch (error) {
+                console.error('Error submitting score:', error);
+                return false;
+            }
+        }
+
+        // --- ENHANCED THEME SYSTEM - 20 REFINED DUAL-TONE THEMES ---
+        const themes = {
+            'ClassicBlue': {
+                name: 'Classic Blue',
+                '--bg-color': '#1a1a2e',
+                '--light-color': '#4da6ff',
+                '--barrier-color': '#3d8bdb'
+            },
+            'ForestGreen': {
+                name: 'Forest Green',
+                '--bg-color': '#1a2e1a',
+                '--light-color': '#66cc66',
+                '--barrier-color': '#52a352'
+            },
+            'WarmOrange': {
+                name: 'Warm Orange',
+                '--bg-color': '#2e1f1a',
+                '--light-color': '#ff9966',
+                '--barrier-color': '#db7a52'
+            },
+            'DeepPurple': {
+                name: 'Deep Purple',
+                '--bg-color': '#2e1a2e',
+                '--light-color': '#cc66ff',
+                '--barrier-color': '#a352db'
+            },
+            'OceanTeal': {
+                name: 'Ocean Teal',
+                '--bg-color': '#1a2e2e',
+                '--light-color': '#66ffcc',
+                '--barrier-color': '#52dba3'
+            },
+            'SunsetRed': {
+                name: 'Sunset Red',
+                '--bg-color': '#2e1a1a',
+                '--light-color': '#ff6666',
+                '--barrier-color': '#db5252'
+            },
+            'GoldenYellow': {
+                name: 'Golden Yellow',
+                '--bg-color': '#2e2e1a',
+                '--light-color': '#ffcc66',
+                '--barrier-color': '#dba352'
+            },
+            'SkyBlue': {
+                name: 'Sky Blue',
+                '--bg-color': '#1a1f2e',
+                '--light-color': '#66ccff',
+                '--barrier-color': '#52a3db'
+            },
+            'MintGreen': {
+                name: 'Mint Green',
+                '--bg-color': '#1a2e1f',
+                '--light-color': '#66ffcc',
+                '--barrier-color': '#52dba3'
+            },
+            'CoralPink': {
+                name: 'Coral Pink',
+                '--bg-color': '#2e1a1f',
+                '--light-color': '#ff66cc',
+                '--barrier-color': '#db52a3'
+            },
+            'LavenderPurple': {
+                name: 'Lavender Purple',
+                '--bg-color': '#1f1a2e',
+                '--light-color': '#cc66ff',
+                '--barrier-color': '#a352db'
+            },
+            'AquaMarine': {
+                name: 'Aqua Marine',
+                '--bg-color': '#1a2e24',
+                '--light-color': '#66ffd9',
+                '--barrier-color': '#52dbad'
+            },
+            'RoseGold': {
+                name: 'Rose Gold',
+                '--bg-color': '#2e1f1a',
+                '--light-color': '#ffb366',
+                '--barrier-color': '#db9052'
+            },
+            'ElectricBlue': {
+                name: 'Electric Blue',
+                '--bg-color': '#0f0f1a',
+                '--light-color': '#3399ff',
+                '--barrier-color': '#2980db'
+            },
+            'NeonGreen': {
+                name: 'Neon Green',
+                '--bg-color': '#0f1a0f',
+                '--light-color': '#33ff66',
+                '--barrier-color': '#29db52'
+            },
+            'HotPink': {
+                name: 'Hot Pink',
+                '--bg-color': '#1a0f1a',
+                '--light-color': '#ff3399',
+                '--barrier-color': '#db2980'
+            },
+            'CyberOrange': {
+                name: 'Cyber Orange',
+                '--bg-color': '#1a150f',
+                '--light-color': '#ff6633',
+                '--barrier-color': '#db5229'
+            },
+            'DeepTeal': {
+                name: 'Deep Teal',
+                '--bg-color': '#0f1a1a',
+                '--light-color': '#33ffcc',
+                '--barrier-color': '#29dba3'
+            },
+            'VoidPurple': {
+                name: 'Void Purple',
+                '--bg-color': '#0f0a1a',
+                '--light-color': '#9933ff',
+                '--barrier-color': '#8029db'
+            },
+            'GoldenSun': {
+                name: 'Golden Sun',
+                '--bg-color': '#1a1a0f',
+                '--light-color': '#ffcc33',
+                '--barrier-color': '#dba329'
+            }
+        };
+        let currentTheme = 'ClassicBlue';
+        const LOCAL_STORAGE_KEY_THEME = 'mirrorMirrorTheme';
+
+        function applyTheme(themeName) {
+            const theme = themes[themeName];
+            if (!theme) return;
+            currentTheme = themeName;
+            const root = document.documentElement;
+            for (const [key, value] of Object.entries(theme)) {
+                if (key !== 'name') {
+                    root.style.setProperty(key, value);
+                    // Set barrier blink color as slightly brighter version
+                    if (key === '--light-color') {
+                        root.style.setProperty('--barrier-blink-color', value);
+                    }
+                }
+            }
+            
+            // Update theme button active state
+            document.querySelectorAll('.theme-button').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.theme === themeName);
+            });
+            try { localStorage.setItem(LOCAL_STORAGE_KEY_THEME, themeName); } catch (e) { console.warn("Could not save theme.", e); }
+        }
+
+        function createThemeSelector() {
+            const containers = document.querySelectorAll('.theme-selector');
+            containers.forEach(container => {
+                // Clear existing buttons
+                const existingButtons = container.querySelectorAll('.theme-button');
+                existingButtons.forEach(btn => btn.remove());
+                
+                Object.entries(themes).forEach(([key, theme]) => {
+                    const btn = document.createElement('button');
+                    btn.className = 'theme-button';
+                    btn.dataset.theme = key;
+                    btn.title = theme.name;
+                    btn.style.background = `linear-gradient(45deg, ${theme['--bg-color']} 30%, ${theme['--light-color']} 70%)`;
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        applyTheme(e.target.dataset.theme);
+                    });
+                    container.appendChild(btn);
+                });
+            });
+        }
+        
+        // --- Game State & Variables ---
+        let isGameStarted = false, isGameOver = false, isAnimatingGameOver = false;
+        let animationFrameId, score = 0, chainMultiplier = 1, highestChainInGame = 0, nodesAbsorbedCount = 0;
+        let startTime = 0, gameDuration = 0, gameOverAnimationStartTime = 0;
+        let gameOverAnimationInfo = { x: 0, y: 0 };
+        let barrierBlinkPhase = 0;
+        const LOCAL_STORAGE_KEY_ALL_TIME_HIGH = 'mirrorMirrorAllTimeHigh';
+        let allTimeHighScore = 0, sessionHighScore = 0;
+        let touchStartX, touchStartY, formStartDragX, formStartDragY;
+        let barrierWarningShown = false;
+        let isGamePaused = false;
+        let scoreSubmitted = false;
+        
+        // NEW: Smooth mouse movement variables
+        let targetMouseX = 0, targetMouseY = 0, isMouseControlActive = false;
+        const MOUSE_LERP_SPEED = 0.12;
+
+        // NEW: Cursor State Preservation
+        let pausedCatPosition = { x: 0, y: 0 };
+        let resumeTransitionActive = false;
+        let resumeTransitionStartTime = 0;
+        const RESUME_TRANSITION_DURATION = 800; // ms for smooth transition
+        
+        // NEW: Particle System
+        const particles = [];
+        
+        // NEW: Chain timer pause management
+        let chainTimerStartTime = 0, chainTimerDuration = 0, chainTimerWasPaused = false;
+        
+        // Touch gesture handling for overlays
+        let overlayTouchStartY = 0;
+        let overlayTouchStartTime = 0;
+        let overlayScrolling = false;
+        
+        // --- FPS Control for Smooth Gameplay ---
+        const TARGET_FPS = 60;
+        const FRAME_TIME = 1000 / TARGET_FPS;
+        let lastFrameTime = 0;
+        let deltaAccumulator = 0;
+        
+        // --- Game Configuration with rem-based scaling ---
+        let GAME_CONFIG;
+        
+        // Get base font size in pixels for rem calculations
+        function getBaseFontSize() {
+            return parseFloat(getComputedStyle(document.documentElement).fontSize);
+        }
+        
+        const DESKTOP_CONFIG = {
+            CAT_RADIUS_REM: 1.125,
+            FOOD_RADIUS_REM: 0.5,
+            FOOD_SPAWN_INTERVAL_MS: 1500,
+            MIN_FOOD_SPAWN_INTERVAL_MS: 300, 
+            FOOD_SPAWN_INTERVAL_DECREMENT_PER_SCORE: 10,
+            SCORE_FOR_BARRIERS: 100, 
+            BARRIER_LINE_WIDTH_REM: 0.25,
+            BARRIER_COLLISION_TOLERANCE_REM: 0.125,
+            SCORE_PER_FOOD: 10, 
+            CHAIN_RESET_THRESHOLD_MS: 5000,
+            INITIAL_BARRIER_COUNT: 1, 
+            MAX_BARRIER_COUNT: 4,
+            BARRIER_MIN_LENGTH_REM: 5,
+            BARRIER_MAX_LENGTH_FACTOR: 0.5,
+            SAFE_DISTANCE_FROM_CATS_REM: 6.25,
+            BARRIER_INCREMENT_SCORE: 150,
+        };
+        
+        const MOBILE_CONFIG = {
+            CAT_RADIUS_REM: 0.9375,
+            FOOD_RADIUS_REM: 0.4375,
+            FOOD_SPAWN_INTERVAL_MS: 1500,
+            MIN_FOOD_SPAWN_INTERVAL_MS: 300, 
+            FOOD_SPAWN_INTERVAL_DECREMENT_PER_SCORE: 10,
+            SCORE_FOR_BARRIERS: 100, 
+            BARRIER_LINE_WIDTH_REM: 0.1875,
+            BARRIER_COLLISION_TOLERANCE_REM: 0.25,
+            SCORE_PER_FOOD: 10, 
+            CHAIN_RESET_THRESHOLD_MS: 5000,
+            INITIAL_BARRIER_COUNT: 1, 
+            MAX_BARRIER_COUNT: 3,
+            BARRIER_MIN_LENGTH_REM: 3.75,
+            BARRIER_MAX_LENGTH_FACTOR: 0.3,
+            SAFE_DISTANCE_FROM_CATS_REM: 5.625,
+            BARRIER_INCREMENT_SCORE: 150,
+        };
+        
+        // Convert rem values to pixels based on current font size
+        function updateGameConfigPixels() {
+            const baseFontSize = getBaseFontSize();
+            const config = isMobile() ? MOBILE_CONFIG : DESKTOP_CONFIG;
+            
+            GAME_CONFIG = {
+                CAT_RADIUS: config.CAT_RADIUS_REM * baseFontSize,
+                FOOD_RADIUS: config.FOOD_RADIUS_REM * baseFontSize,
+                BARRIER_LINE_WIDTH: config.BARRIER_LINE_WIDTH_REM * baseFontSize,
+                BARRIER_COLLISION_TOLERANCE: config.BARRIER_COLLISION_TOLERANCE_REM * baseFontSize,
+                BARRIER_MIN_LENGTH: config.BARRIER_MIN_LENGTH_REM * baseFontSize,
+                SAFE_DISTANCE_FROM_CATS: config.SAFE_DISTANCE_FROM_CATS_REM * baseFontSize,
+                // Copy over non-pixel values
+                FOOD_SPAWN_INTERVAL_MS: config.FOOD_SPAWN_INTERVAL_MS,
+                MIN_FOOD_SPAWN_INTERVAL_MS: config.MIN_FOOD_SPAWN_INTERVAL_MS,
+                FOOD_SPAWN_INTERVAL_DECREMENT_PER_SCORE: config.FOOD_SPAWN_INTERVAL_DECREMENT_PER_SCORE,
+                SCORE_FOR_BARRIERS: config.SCORE_FOR_BARRIERS,
+                SCORE_PER_FOOD: config.SCORE_PER_FOOD,
+                CHAIN_RESET_THRESHOLD_MS: config.CHAIN_RESET_THRESHOLD_MS,
+                INITIAL_BARRIER_COUNT: config.INITIAL_BARRIER_COUNT,
+                MAX_BARRIER_COUNT: config.MAX_BARRIER_COUNT,
+                BARRIER_MAX_LENGTH_FACTOR: config.BARRIER_MAX_LENGTH_FACTOR,
+                BARRIER_INCREMENT_SCORE: config.BARRIER_INCREMENT_SCORE
+            };
+        }
+        
+        // --- Player Characters & Game Objects ---
+        const lightcat = { x: 0, y: 0, radius: 0, color: '' };
+        const darkcat = { x: 0, y: 0, radius: 0, color: '' };
+        const foods = [], barriers = [];
+        let lastFoodSpawnTime = 0, currentSpawnInterval, barriersEnabled = false;
+        let lastFoodAbsorbedTime = 0, chainResetTimer;
+        
+        // --- UI Element Selectors ---
+        const hudScore = document.querySelector('.hud-score'), hudChain = document.querySelector('.hud-chain');
+        const startOverlay = document.getElementById('startOverlay'), gameOverlay = document.getElementById('gameOverlay');
+        const startTitleMain = document.querySelector('#startTitle .title-main'), startDesc = document.getElementById('startDesc'), startInstruction = document.getElementById('startInstruction');
+        const finalScoreSpan = document.getElementById('finalScore'), highestChainValSpan = document.getElementById('highestChainVal');
+        const nodesAbsorbedSpan = document.getElementById('nodesAbsorbed'), timeSurvivedSpan = document.getElementById('timeSurvived');
+        const restartButton = document.getElementById('restartButton'), submitScoreButton = document.getElementById('submitScoreButton');
+        const sessionHighMessage = document.getElementById('sessionHighMessage'), allTimeHighMessage = document.getElementById('allTimeHighMessage');
+        const sessionHighScoreValSpan = document.getElementById('sessionHighScoreVal'), allTimeHighScoreValSpan = document.getElementById('allTimeHighScoreVal');
+        const themeMenuBtn = document.getElementById('themeMenuBtn');
+        const playerNameInput = document.getElementById('playerNameInput');
+        const startLeaderboard = document.getElementById('startLeaderboard');
+        const gameOverLeaderboard = document.getElementById('gameOverLeaderboard');
+        
+        // --- Collision Detection ---
+        function checkCircleCollision(c1, c2) { 
+            const dx = c1.x - c2.x, dy = c1.y - c2.y;
+            return (dx * dx + dy * dy) < (c1.radius + c2.radius) ** 2;
+        }
+        function checkLineCircleCollision(line, circle) {
+            const { x1, y1, x2, y2 } = line; const { x, y, radius } = circle;
+            const r = radius + GAME_CONFIG.BARRIER_COLLISION_TOLERANCE;
+            const len_sq = (x2 - x1) ** 2 + (y2 - y1) ** 2;
+            if (len_sq === 0) return Math.sqrt((x - x1) ** 2 + (y - y1) ** 2) < r;
+            let t = ((x - x1) * (x2 - x1) + (y - y1) * (y2 - y1)) / len_sq;
+            t = Math.max(0, Math.min(1, t));
+            const closestX = x1 + t * (x2 - x1), closestY = y1 + t * (y2 - y1);
+            return ((x - closestX) ** 2 + (y - closestY) ** 2) < r * r;
+        }
+        function isLineTooCloseToCats(x1, y1, x2, y2) {
+            const safeDistance = GAME_CONFIG.SAFE_DISTANCE_FROM_CATS;
+            const line = { x1, y1, x2, y2 };
+            const lightCheck = { x: lightcat.x, y: lightcat.y, radius: safeDistance };
+            const darkCheck = { x: darkcat.x, y: darkcat.y, radius: safeDistance };
+            return checkLineCircleCollision(line, lightCheck) || checkLineCircleCollision(line, darkCheck);
+        }
+
+        // --- Warning system ---
+        function showBarrierWarning() {
+            if (barrierWarningShown) return;
+            barrierWarningShown = true;
+            
+            const warningOverlay = document.createElement('div');
+            warningOverlay.className = 'warning-overlay';
+            warningOverlay.innerHTML = '<div class="warning-text">barriers incoming!</div>';
+            gameContainer.appendChild(warningOverlay);
+            
+            setTimeout(() => {
+                if (warningOverlay.parentNode) {
+                    warningOverlay.remove();
+                }
+            }, 1000);
+        }
+
+        // --- FIXED CANVAS SYSTEM FOR HIGH-DPI ---
+        function resizeCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+            const displayWidth = Math.round(window.innerWidth * 0.98);
+            const displayHeight = Math.round(window.innerHeight * 0.98);
+            
+            canvas.width = displayWidth * dpr;
+            canvas.height = displayHeight * dpr;
+            canvas.style.width = displayWidth + 'px';
+            canvas.style.height = displayHeight + 'px';
+            
+            ctx.scale(dpr, dpr);
+            
+            // Store logical dimensions for game calculations
+            canvas.logicalWidth = displayWidth;
+            canvas.logicalHeight = displayHeight;
+        }
+
+        // --- Initialization ---
+        function init() {
+            updateGameConfigPixels();
+            lightcat.radius = darkcat.radius = GAME_CONFIG.CAT_RADIUS;
+            ctx.imageSmoothingEnabled = false; 
+            
+            const mobile = isMobile();
+            startTitleMain.textContent = mobile ? "Mirror" : "Mirror"; 
+            startDesc.innerHTML = mobile ? "Touch and drag to move the light character. <br>Dark character mirrors your position." : "Use your mouse to control the light character.<br>Dark character mirrors your moves perfectly."; 
+            startInstruction.textContent = mobile ? "TAP TO BEGIN" : "CLICK TO BEGIN";
+            
+            // Setup player input handlers
+            setupPlayerInputs();
+            
+            // Setup overlay event handling
+            if (mobile) {
+                setupMobileTouchHandling();
+            } else {
+                startOverlay.addEventListener('click', handleOverlayClick);
+                gameOverlay.addEventListener('click', handleOverlayClick);
+            }
+            
+            if(mobile) {
+                canvas.addEventListener('touchstart', handleTouchStart, { passive: false }); 
+                canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+            } else {
+                canvas.addEventListener('mousemove', handleMouseMove); 
+                window.addEventListener('keydown', handleKeyDown);
+            }
+            
+            createThemeSelector();
+            const savedTheme = localStorage.getItem(LOCAL_STORAGE_KEY_THEME);
+            applyTheme(savedTheme && themes[savedTheme] ? savedTheme : 'ClassicBlue');
+
+            restartButton.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                startGame();
+            }); 
+
+            submitScoreButton.addEventListener('click', handleSubmitScore);
+
+            themeMenuBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                pauseGame();
+            });
+
+            loadPlayerData();
+            loadHighScores(); 
+            loadLeaderboard(startLeaderboard);
+            showStartScreen();
+            
+            // Update config on resize
+            window.addEventListener('resize', () => {
+                updateGameConfigPixels();
+                resizeAndDraw();
+            });
+        }
+
+        // --- FIXED MOBILE TOUCH HANDLING ---
+        function setupMobileTouchHandling() {
+            [startOverlay, gameOverlay].forEach(overlay => {
+                overlay.addEventListener('touchstart', (e) => {
+                    const touch = e.touches[0];
+                    overlayTouchStartY = touch.clientY;
+                    overlayTouchStartTime = Date.now();
+                    overlayScrolling = false;
+                }, { passive: true });
+
+                overlay.addEventListener('touchmove', (e) => {
+                    const touch = e.touches[0];
+                    const deltaY = Math.abs(touch.clientY - overlayTouchStartY);
+                    const deltaTime = Date.now() - overlayTouchStartTime;
+                    // More forgiving scroll detection
+                    if (deltaY > 25 && deltaTime > 120) {
+                        overlayScrolling = true;
+                    }
+                }, { passive: true });
+
+                overlay.addEventListener('touchend', (e) => {
+                    if (!overlayScrolling && 
+                        !e.target.closest('.theme-selector, #restartButton, #submitScoreButton, .player-setup, .leaderboard-list')) {
+                        
+                        const deltaTime = Date.now() - overlayTouchStartTime;
+                        const deltaY = Math.abs((e.changedTouches[0]?.clientY || overlayTouchStartY) - overlayTouchStartY);
+                        // Stricter tap detection
+                        if (deltaTime < 250 && deltaY < 20) {
+                            handleOverlayClick(e);
+                        }
+                    }
+                    overlayScrolling = false;
+                }, { passive: false });
+            });
+        }
+
+        function setupPlayerInputs() {
+            // Player name input
+            playerNameInput.addEventListener('input', (e) => {
+                playerName = e.target.value.slice(0, 20);
+                savePlayerData();
+            });
+
+            // Avatar selection
+            document.querySelectorAll('.avatar-option').forEach(option => {
+                option.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    
+                    document.querySelectorAll('.avatar-option').forEach(opt => opt.classList.remove('selected'));
+                    option.classList.add('selected');
+                    selectedAvatar = option.dataset.avatar;
+                    savePlayerData();
+                });
+            });
+        }
+
+        async function handleSubmitScore(e) {
+            e.stopPropagation();
+            e.preventDefault();
+            
+            if (scoreSubmitted || !playerName.trim()) {
+                if (!playerName.trim()) {
+                    alert('Please enter your name first!');
+                }
+                return;
+            }
+
+            submitScoreButton.disabled = true;
+            submitScoreButton.textContent = 'Submitting...';
+
+            const success = await submitScore(playerName, score, selectedAvatar);
+            
+            if (success) {
+                scoreSubmitted = true;
+                submitScoreButton.textContent = 'Score Submitted!';
+                
+                setTimeout(() => {
+                    loadLeaderboard(gameOverLeaderboard);
+                }, 500);
+            } else {
+                submitScoreButton.disabled = false;
+                submitScoreButton.textContent = 'Retry Submit';
+                alert('Failed to submit score. Please try again!');
+            }
+        }
+
+        function handleOverlayClick(event) {
+            if (event.target.closest('.theme-selector') || 
+                event.target.closest('#restartButton') ||
+                event.target.closest('#submitScoreButton') ||
+                event.target.closest('.player-setup') ||
+                event.target.closest('.leaderboard')) {
+                return;
+            }
+            
+            event.preventDefault();
+            event.stopPropagation();
+            
+            if (!startOverlay.classList.contains('hidden')) {
+                if (!isGameStarted && !isGameOver) {
+                    if (!playerName.trim()) {
+                        playerNameInput.focus();
+                        return;
+                    }
+                    startGame();
+                } else if (isGamePaused) {
+                    resumeGame();
+                }
+            } else if (!gameOverlay.classList.contains('hidden')) {
+                startGame();
+            }
+        }
+
+        // --- FIXED MOUSE MOVEMENT WITH COLLISION ---
+        function handleMouseMove(event) {
+            if (isAnimatingGameOver || !isGameStarted || isGameOver || isGamePaused) return;
+            const r = canvas.getBoundingClientRect();
+            const logicalWidth = canvas.logicalWidth || canvas.width;
+            const logicalHeight = canvas.logicalHeight || canvas.height;
+            
+            // FIXED: Smooth initial positioning - don't snap to cursor immediately
+            if (!isMouseControlActive && !resumeTransitionActive) {
+                // First mouse movement - start smooth transition from current position
+                isMouseControlActive = true;
+            }
+            
+            targetMouseX = Math.max(GAME_CONFIG.CAT_RADIUS, 
+                                   Math.min(logicalWidth - GAME_CONFIG.CAT_RADIUS, event.clientX - r.left));
+            targetMouseY = Math.max(GAME_CONFIG.CAT_RADIUS, 
+                                   Math.min(logicalHeight - GAME_CONFIG.CAT_RADIUS, event.clientY - r.top));
+        }
+
+        function handleTouchStart(event) { 
+            event.preventDefault(); 
+            if (isGameOver || !isGameStarted || isAnimatingGameOver || isGamePaused) return; 
+            const touch = event.touches[0]; 
+            touchStartX = touch.clientX; 
+            touchStartY = touch.clientY; 
+            formStartDragX = lightcat.x; 
+            formStartDragY = lightcat.y; 
+        }
+        function handleTouchMove(event) { 
+            event.preventDefault(); 
+            if (isGameOver || !isGameStarted || isAnimatingGameOver || isGamePaused) return; 
+            const touch = event.touches[0]; 
+            const deltaX = touch.clientX - touchStartX, deltaY = touch.clientY - touchStartY; 
+            const logicalWidth = canvas.logicalWidth || canvas.width;
+            const logicalHeight = canvas.logicalHeight || canvas.height;
+            lightcat.x = Math.max(GAME_CONFIG.CAT_RADIUS, Math.min(logicalWidth - GAME_CONFIG.CAT_RADIUS, formStartDragX + deltaX)); 
+            lightcat.y = Math.max(GAME_CONFIG.CAT_RADIUS, Math.min(logicalHeight - GAME_CONFIG.CAT_RADIUS, formStartDragY + deltaY)); 
+            updateDarkcatPosition(); 
+        }
+        function handleKeyDown(event) { 
+            if ((isGameOver || isGamePaused) && (event.code === 'Space' || event.code === 'Enter')) { 
+                if (isGamePaused) {
+                    resumeGame();
+                } else {
+                    startGame();
+                }
+                event.preventDefault(); 
+            }
+        }
+
+        // --- Screen & Game State Management ---
+        function showStartScreen() { 
+            startOverlay.classList.remove('hidden'); 
+            gameOverlay.classList.add('hidden'); 
+            themeMenuBtn.classList.add('hidden');
+            isGamePaused = false;
+            if (!isMobile()) gameContainer.classList.remove('game-active-cursor');
+            resizeCanvas(); 
+            const logicalWidth = canvas.logicalWidth || canvas.width;
+            const logicalHeight = canvas.logicalHeight || canvas.height;
+            lightcat.x = logicalWidth / 2; 
+            lightcat.y = logicalHeight / 2 - (logicalHeight * 0.1); 
+            updateDarkcatPosition(); 
+            draw(); 
+        }
+        
+        // --- FIXED PAUSE SYSTEM ---
+        function pauseGame() {
+            if (!isGameStarted || isGameOver || isAnimatingGameOver) return;
+            
+            cancelAnimationFrame(animationFrameId);
+            isGamePaused = true;
+            
+            // FIXED: Save cat position for smooth resume
+            pausedCatPosition.x = lightcat.x;
+            pausedCatPosition.y = lightcat.y;
+            isMouseControlActive = false; // Disable mouse control during pause
+            
+            // Pause chain timer
+            if (chainResetTimer && chainTimerStartTime > 0) {
+                const elapsed = performance.now() - chainTimerStartTime;
+                chainTimerDuration = Math.max(0, GAME_CONFIG.CHAIN_RESET_THRESHOLD_MS - elapsed);
+                clearTimeout(chainResetTimer);
+                chainTimerWasPaused = true;
+            }
+            
+            startOverlay.classList.remove('hidden');
+            themeMenuBtn.classList.add('hidden');
+            if (!isMobile()) gameContainer.classList.remove('game-active-cursor');
+        }
+        
+        function resumeGame() {
+            if (!isGamePaused) return;
+            
+            // FIXED: Start smooth transition from paused position
+            lightcat.x = pausedCatPosition.x;
+            lightcat.y = pausedCatPosition.y;
+            updateDarkcatPosition();
+            
+            resumeTransitionActive = true;
+            resumeTransitionStartTime = performance.now();
+            
+            // Resume chain timer
+            if (chainTimerWasPaused && chainTimerDuration > 0) {
+                chainTimerStartTime = performance.now();
+                chainTimerWasPaused = false;
+                chainResetTimer = setTimeout(() => {
+                    if (!isGameOver && !isAnimatingGameOver && !isGamePaused) chainMultiplier = 1;
+                }, chainTimerDuration);
+            }
+            
+            startOverlay.classList.add('hidden'); 
+            themeMenuBtn.classList.remove('hidden');
+            if (!isMobile()) gameContainer.classList.add('game-active-cursor');
+            isGamePaused = false;
+            
+            const currentTime = performance.now();
+            lastFrameTime = currentTime;
+            deltaAccumulator = 0;
+            
+            gameLoop();
+        }
+        
+        function startGame() {
+            playerName = playerNameInput.value.trim();
+            if (!playerName) {
+                playerNameInput.focus();
+                return;
+            }
+            savePlayerData();
+
+            cancelAnimationFrame(animationFrameId); 
+            startOverlay.classList.add('hidden'); 
+            gameOverlay.classList.add('hidden'); 
+            themeMenuBtn.classList.remove('hidden');
+            sessionHighMessage.classList.add('hidden'); 
+            allTimeHighMessage.classList.add('hidden'); 
+            if (!isMobile()) gameContainer.classList.add('game-active-cursor');
+            isGameOver = false; 
+            isGameStarted = true; 
+            isAnimatingGameOver = false; 
+            isGamePaused = false;
+            scoreSubmitted = false;
+            isMouseControlActive = false; // FIXED: Reset mouse control state
+            score = 0; 
+            chainMultiplier = 1; 
+            highestChainInGame = 0; 
+            nodesAbsorbedCount = 0;
+            foods.length = 0; 
+            barriers.length = 0; 
+            barriersEnabled = false; 
+            barrierWarningShown = false;
+            lastFoodSpawnTime = performance.now(); 
+            currentSpawnInterval = GAME_CONFIG.FOOD_SPAWN_INTERVAL_MS;
+            startTime = performance.now(); 
+            gameDuration = 0; 
+            clearTimeout(chainResetTimer); 
+            const logicalWidth = canvas.logicalWidth || canvas.width;
+            const logicalHeight = canvas.logicalHeight || canvas.height;
+            lightcat.x = logicalWidth / 2; 
+            lightcat.y = logicalHeight / 2 - (logicalHeight * 0.1);
+            updateDarkcatPosition(); 
+            
+            lastFrameTime = performance.now();
+            deltaAccumulator = 0;
+            
+            gameLoop();
+        }
+        
+        function triggerGameOverAnimation(collidingCat) { 
+            if (isAnimatingGameOver) return; 
+            isAnimatingGameOver = true; 
+            gameOverAnimationStartTime = performance.now(); 
+            gameOverAnimationInfo.x = collidingCat.x; 
+            gameOverAnimationInfo.y = collidingCat.y; 
+            themeMenuBtn.classList.add('hidden');
+            clearTimeout(chainResetTimer); 
+            setTimeout(() => { 
+                isGameOver = true; 
+                isAnimatingGameOver = false; 
+            }, 1000); 
+        }
+        
+        function gameLoop(currentTime = 0) { 
+            if (isGameOver) { 
+                showGameOverScreen(); 
+                return; 
+            } 
+            if (isGamePaused) {
+                return;
+            }
+            
+            const deltaTime = currentTime - lastFrameTime;
+            deltaAccumulator += deltaTime;
+            
+            while (deltaAccumulator >= FRAME_TIME) {
+                if (isAnimatingGameOver) {
+                    // Keep animation smooth during game over
+                } else if (isGameStarted) { 
+                    update(currentTime); 
+                }
+                deltaAccumulator -= FRAME_TIME;
+            }
+            
+            draw();
+            lastFrameTime = currentTime;
+            animationFrameId = requestAnimationFrame(gameLoop); 
+        }
+        
+        function showGameOverScreen() {
+            cancelAnimationFrame(animationFrameId); 
+            gameOverlay.classList.remove('hidden'); 
+            themeMenuBtn.classList.add('hidden');
+            if (!isMobile()) gameContainer.classList.remove('game-active-cursor');
+            finalScoreSpan.textContent = score; 
+            highestChainValSpan.textContent = highestChainInGame; 
+            nodesAbsorbedSpan.textContent = nodesAbsorbedCount; 
+            timeSurvivedSpan.textContent = `${gameDuration}s`;
+            
+            if (score > 0 && playerName.trim() && supabase) {
+                submitScoreButton.classList.remove('hidden');
+                submitScoreButton.disabled = false;
+                submitScoreButton.textContent = 'Submit to Leaderboard';
+            } else {
+                submitScoreButton.classList.add('hidden');
+            }
+
+            if (score > sessionHighScore) { 
+                sessionHighScore = score; 
+                sessionHighMessage.classList.remove('hidden'); 
+            }
+            if (score > allTimeHighScore) { 
+                allTimeHighScore = score; 
+                allTimeHighMessage.classList.remove('hidden'); 
+                saveAllTimeHighScore(); 
+            }
+            sessionHighScoreValSpan.textContent = sessionHighScore; 
+            allTimeHighScoreValSpan.textContent = allTimeHighScore;
+            createThemeSelector();
+            loadLeaderboard(gameOverLeaderboard);
+        }
+        
+        // --- Core Game Logic ---
+        function update(currentTime) {
+            gameDuration = Math.floor((currentTime - startTime) / 1000); 
+            barrierBlinkPhase = (currentTime / 500) % 1;
+            
+            // FIXED: Smooth mouse movement with resume transition
+            if (!isMobile()) {
+                if (resumeTransitionActive) {
+                    const elapsed = performance.now() - resumeTransitionStartTime;
+                    const progress = Math.min(elapsed / RESUME_TRANSITION_DURATION, 1);
+                    
+                    if (progress >= 1) {
+                        resumeTransitionActive = false;
+                        isMouseControlActive = true;
+                    } else {
+                        // Smooth transition from paused position to target
+                        const easedProgress = 1 - Math.pow(1 - progress, 3); // Ease out cubic
+                        const deltaX = targetMouseX - pausedCatPosition.x;
+                        const deltaY = targetMouseY - pausedCatPosition.y;
+                        
+                        const nextX = pausedCatPosition.x + (deltaX * easedProgress);
+                        const nextY = pausedCatPosition.y + (deltaY * easedProgress);
+                        
+                        lightcat.x = nextX;
+                        lightcat.y = nextY;
+                        updateDarkcatPosition();
+                    }
+                } else if (isMouseControlActive) {
+                    // FIXED: Removed pre-emptive barrier collision check.
+                    // The player can now move "into" a barrier, and the main collision loop
+                    // below will detect it and trigger the game over.
+                    const deltaX = targetMouseX - lightcat.x;
+                    const deltaY = targetMouseY - lightcat.y;
+                    const nextX = lightcat.x + (deltaX * MOUSE_LERP_SPEED);
+                    const nextY = lightcat.y + (deltaY * MOUSE_LERP_SPEED);
+                    
+                    lightcat.x = nextX;
+                    lightcat.y = nextY;
+                    updateDarkcatPosition();
+                }
+            }
+            
+            if (currentTime - lastFoodSpawnTime > currentSpawnInterval) { 
+                spawnFood(); 
+                lastFoodSpawnTime = currentTime; 
+                currentSpawnInterval = Math.max(GAME_CONFIG.MIN_FOOD_SPAWN_INTERVAL_MS, currentSpawnInterval - GAME_CONFIG.FOOD_SPAWN_INTERVAL_DECREMENT_PER_SCORE); 
+            }
+            
+            if (currentTime - lastFoodAbsorbedTime > GAME_CONFIG.CHAIN_RESET_THRESHOLD_MS && chainMultiplier > 1) { 
+                chainMultiplier = 1; 
+                clearTimeout(chainResetTimer); 
+            }
+            
+            if (score >= GAME_CONFIG.SCORE_FOR_BARRIERS - 40 && !barrierWarningShown && !barriersEnabled) {
+                showBarrierWarning();
+            }
+            
+            if (score >= GAME_CONFIG.SCORE_FOR_BARRIERS && !barriersEnabled) { 
+                barriersEnabled = true; 
+                spawnBarriers(GAME_CONFIG.INITIAL_BARRIER_COUNT); 
+            } else if (barriersEnabled && barriers.length < GAME_CONFIG.MAX_BARRIER_COUNT) {
+                const nextBarrierScore = GAME_CONFIG.SCORE_FOR_BARRIERS + (barriers.length * GAME_CONFIG.BARRIER_INCREMENT_SCORE);
+                if (score >= nextBarrierScore) {
+                    spawnBarriers(1);
+                }
+            }
+            
+            for (let i = foods.length - 1; i >= 0; i--) { 
+                const food = foods[i]; 
+                if (food.type === 'light') { 
+                    if (checkCircleCollision(lightcat, food)) { 
+                        absorbFood(lightcat); // FIXED: Pass correct cat
+                        foods.splice(i, 1); 
+                        continue; 
+                    } 
+                    if (checkCircleCollision(darkcat, food)) { 
+                        triggerGameOverAnimation(darkcat); 
+                        return; 
+                    } 
+                } else if (food.type === 'dark') { 
+                    if (checkCircleCollision(darkcat, food)) { 
+                        absorbFood(darkcat); // FIXED: Pass correct cat
+                        foods.splice(i, 1); 
+                        continue; 
+                    } 
+                    if (checkCircleCollision(lightcat, food)) { 
+                        triggerGameOverAnimation(lightcat); 
+                        return; 
+                    } 
+                } 
+            }
+            
+            for (const b of barriers) { 
+                if (checkLineCircleCollision(b, lightcat)) { 
+                    triggerGameOverAnimation(lightcat); 
+                    return; 
+                } 
+                if (checkLineCircleCollision(b, darkcat)) { 
+                    triggerGameOverAnimation(darkcat); 
+                    return; 
+                } 
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); 
+            const theme = themes[currentTheme];
+            
+            if (barriers.length > 0) { 
+                const blinkIntensity = Math.sin(barrierBlinkPhase * Math.PI * 2) * 0.5 + 0.5; 
+                ctx.strokeStyle = blendColors(theme['--barrier-color'], theme['--light-color'], blinkIntensity); 
+                ctx.lineWidth = GAME_CONFIG.BARRIER_LINE_WIDTH; 
+                for (const b of barriers) { 
+                    ctx.beginPath(); 
+                    ctx.moveTo(b.x1, b.y1); 
+                    ctx.lineTo(b.x2, b.y2); 
+                    ctx.stroke(); 
+                } 
+            }
+            
+            // FIXED: Enhanced food visibility
+            for (const f of foods) {
+                if (f.isDark) {
+                    const pulseIntensity = Math.sin(performance.now() * 0.005) * 0.3 + 0.7;
+                    ctx.fillStyle = f.color;
+                    ctx.strokeStyle = theme['--light-color'];
+                    ctx.lineWidth = Math.max(3, f.radius * 0.2) * pulseIntensity;
+                    ctx.beginPath();
+                    ctx.arc(f.x, f.y, f.radius, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.shadowColor = theme['--light-color'];
+                    ctx.shadowBlur = f.radius * 0.5;
+                    ctx.beginPath();
+                    ctx.arc(f.x, f.y, f.radius * 0.7, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                } else {
+                    ctx.fillStyle = f.color;
+                    ctx.shadowColor = f.color;
+                    ctx.shadowBlur = f.radius * 0.3;
+                    ctx.beginPath();
+                    ctx.arc(f.x, f.y, f.radius, 0, 2 * Math.PI);
+                    ctx.fill();
+                    ctx.shadowBlur = 0;
+                }
+            }
+            
+            updateParticles();
+            drawParticles();
+            
+            drawVectorAnimal(darkcat, selectedAvatar, true);
+            drawVectorAnimal(lightcat, selectedAvatar, false);
+            
+            if (isGameStarted && !isGameOver && !isAnimatingGameOver && !isGamePaused) { 
+                if (isMobile()) { 
+                    hudScore.textContent = `SCORE:${String(score).padStart(6, '0')}`; 
+                    hudChain.textContent = `CHAIN:x${chainMultiplier}`; 
+                } else { 
+                    ctx.fillStyle = theme['--light-color']; 
+                    ctx.font = `${getBaseFontSize()}px "Press Start 2P"`; 
+                    ctx.textAlign = 'left'; 
+                    ctx.fillText(`SCORE:${String(score).padStart(6, '0')}`, getBaseFontSize() * 1.25, getBaseFontSize() * 1.875); 
+                    ctx.textAlign = 'right'; 
+                    ctx.fillText(`CHAIN:x${chainMultiplier}`, (canvas.logicalWidth || canvas.width) - getBaseFontSize() * 1.25, getBaseFontSize() * 1.875); 
+                }
+            }
+            
+            if (isAnimatingGameOver) { 
+                const elapsed = performance.now() - gameOverAnimationStartTime, progress = Math.min(elapsed / 1000, 1), alpha = Math.abs(Math.sin(progress * Math.PI * 4)); 
+                ctx.fillStyle = `${theme['--barrier-color']}60`; 
+                ctx.strokeStyle = `${theme['--light-color']}${Math.round(alpha*255).toString(16).padStart(2, '0')}`; 
+                ctx.lineWidth = getBaseFontSize() * 0.25; 
+                ctx.beginPath(); 
+                ctx.arc(gameOverAnimationInfo.x, gameOverAnimationInfo.y, getBaseFontSize() * 3.75 * progress, 0, 2 * Math.PI); 
+                ctx.fill(); 
+                ctx.stroke(); 
+            }
+        }
+
+        function createParticle(x, y, type) {
+            particles.push({
+                x, y,
+                vx: (Math.random() - 0.5) * 4,
+                vy: (Math.random() - 0.5) * 4,
+                life: 1.0,
+                decay: 0.02,
+                type,
+                size: Math.random() * 4 + 2
+            });
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i]; p.x += p.vx; p.y += p.vy; p.life -= p.decay; p.vx *= 0.98; p.vy *= 0.98;
+                if (p.life <= 0) { particles.splice(i, 1); }
+            }
+        }
+
+        function drawParticles() {
+            const theme = themes[currentTheme];
+            for (const p of particles) {
+                ctx.save();
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = p.type === 'food' ? theme['--barrier-color'] : theme['--light-color'];
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2); ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // --- NEW: SVG-Style Vector Art System ---
+        function drawVectorAnimal(animal, type, isDark) {
+            const { x, y, radius } = animal;
+            const theme = themes[currentTheme];
+            ctx.save();
+            ctx.translate(x, y);
+
+            // FIXED: Use theme colors correctly for fill and accents.
+            const fillColor = isDark ? theme['--bg-color'] : theme['--light-color'];
+            const accentColor = isDark ? theme['--light-color'] : theme['--bg-color'];
+            
+            switch(type) {
+                case 'cat': drawVectorCat(radius, fillColor, accentColor); break;
+                case 'dog': drawVectorDog(radius, fillColor, accentColor); break;
+                case 'monkey': drawVectorMonkey(radius, fillColor, accentColor); break;
+                case 'dino': drawVectorDino(radius, fillColor, accentColor); break;
+                case 'bear': drawVectorBear(radius, fillColor, accentColor); break;
+            }
+            
+            ctx.restore();
+        }
+
+        function drawVectorCat(radius, fillColor, accentColor) {
+            const s = radius / 100; // Scale factor from 200x200 SVG viewbox
+            ctx.lineWidth = s * 4;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            ctx.fillStyle = fillColor; 
+            ctx.strokeStyle = accentColor;
+            
+            // Head and Ears as one path
+            ctx.beginPath();
+            ctx.moveTo(s*-30, s*-35);
+            ctx.quadraticCurveTo(s*-25, s*-45, s*-30, s*-50);
+            ctx.quadraticCurveTo(s*-60, s*-70, s*-50, s*-35);
+            ctx.arc(0, 0, s*70, Math.PI + (Math.PI/4), Math.PI*2 - (Math.PI/4));
+            ctx.quadraticCurveTo(s*60, s*-70, s*30, s*-50);
+            ctx.quadraticCurveTo(s*25, s*-45, s*30, s*-35);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            
+            // Features
+            ctx.fillStyle = accentColor;
+            ctx.beginPath(); ctx.ellipse(s*-20, s*-15, s*8, s*12, 0, 0, Math.PI*2); ctx.fill(); // Left eye
+            ctx.beginPath(); ctx.ellipse(s*20, s*-15, s*8, s*12, 0, 0, Math.PI*2); ctx.fill(); // Right eye
+            ctx.beginPath(); ctx.moveTo(s*0, s*0); ctx.quadraticCurveTo(s*-5, s*-5, s*0, s*-10); ctx.quadraticCurveTo(s*5, s*-5, s*0, s*0); ctx.closePath(); ctx.fill(); // Nose
+            ctx.beginPath(); ctx.moveTo(s*0, s*-40); ctx.quadraticCurveTo(s*-5, s*-45, s*0, s*-50); ctx.quadraticCurveTo(s*5, s*-45, s*0, s*-40); ctx.closePath(); ctx.fill(); // Forehead
+
+            // Highlights & Whiskers
+            ctx.fillStyle = fillColor;
+            ctx.beginPath(); ctx.ellipse(s*-18, s*-18, s*2, s*3, 0, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(s*22, s*-18, s*2, s*3, 0, 0, Math.PI*2); ctx.fill();
+
+            ctx.strokeStyle = accentColor;
+            ctx.beginPath(); ctx.moveTo(s*0, s*5); ctx.quadraticCurveTo(s*-10, s*15, s*-15, s*10); ctx.stroke(); // Mouth
+            ctx.beginPath(); ctx.moveTo(s*0, s*5); ctx.quadraticCurveTo(s*10, s*15, s*15, s*10); ctx.stroke();
+            
+            ctx.beginPath(); ctx.moveTo(s*-70, s*-5); ctx.lineTo(s*-35, s*0); ctx.stroke(); // Whiskers
+            ctx.beginPath(); ctx.moveTo(s*-70, s*5); ctx.lineTo(s*-35, s*5); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(s*-70, s*15); ctx.lineTo(s*-35, s*10); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(s*70, s*-5); ctx.lineTo(s*35, s*0); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(s*70, s*5); ctx.lineTo(s*35, s*5); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(s*70, s*15); ctx.lineTo(s*35, s*10); ctx.stroke();
+        }
+        
+        function drawVectorDog(radius, fillColor, accentColor) {
+            const s = radius / 100;
+            ctx.lineWidth = s * 6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            
+            ctx.fillStyle = fillColor; ctx.strokeStyle = accentColor;
+            
+            // Head
+            ctx.beginPath(); ctx.arc(0, 0, s * 60, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+            
+            // Ears
+            ctx.beginPath(); ctx.moveTo(s*-70, s*-20); ctx.bezierCurveTo(s*-80, s*-40, s*-80, s*-60, s*-65, s*-65); ctx.bezierCurveTo(s*-50, s*-70, s*-40, s*-50, s*-45, s*-30); ctx.closePath(); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(s*70, s*-20); ctx.bezierCurveTo(s*80, s*-40, s*80, s*-60, s*65, s*-65); ctx.bezierCurveTo(s*50, s*-70, s*40, s*-50, s*45, s*-30); ctx.closePath(); ctx.fill(); ctx.stroke();
+            
+            // Features
+            ctx.fillStyle = accentColor;
+            ctx.beginPath(); ctx.arc(s*-20, s*-10, s*8, 0, Math.PI*2); ctx.fill(); // Left eye
+            ctx.beginPath(); ctx.arc(s*20, s*-10, s*8, 0, Math.PI*2); ctx.fill(); // Right eye
+            ctx.beginPath(); ctx.ellipse(0, s*10, s*8, s*10, 0, 0, Math.PI*2); ctx.fill(); // Nose
+
+            // Mouth
+            ctx.strokeStyle = accentColor;
+            ctx.beginPath(); ctx.moveTo(0, s*25); ctx.bezierCurveTo(s*-10, s*35, s*-25, s*30, s*-25, s*25); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0, s*25); ctx.bezierCurveTo(s*10, s*35, s*25, s*30, s*25, s*25); ctx.stroke();
+        }
+
+        function drawVectorMonkey(radius, fillColor, accentColor) {
+            const s = radius / 100;
+            ctx.lineWidth = s * 6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            ctx.fillStyle = fillColor; ctx.strokeStyle = accentColor;
+
+            // Ears
+            ctx.beginPath(); ctx.arc(s*-70, 0, s*30, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.arc(s*70, 0, s*30, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+
+            // Head
+            ctx.beginPath(); ctx.arc(0, 0, s*55, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+
+            // Face details
+            ctx.fillStyle = accentColor;
+            ctx.beginPath(); ctx.arc(s*-20, s*-10, s*8, 0, Math.PI*2); ctx.fill(); // Left eye
+            ctx.beginPath(); ctx.arc(s*20, s*-10, s*8, 0, Math.PI*2); ctx.fill(); // Right eye
+            ctx.strokeStyle = accentColor;
+            ctx.beginPath(); ctx.arc(0, s*15, s*20, 0.2, Math.PI-0.2); ctx.stroke();
+        }
+
+        function drawVectorDino(radius, fillColor, accentColor) {
+            const s = radius / 100;
+            ctx.lineWidth = s * 6; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            ctx.fillStyle = fillColor; ctx.strokeStyle = accentColor;
+
+            // Head & Snout
+            ctx.beginPath();
+            ctx.arc(0, s*10, s*60, Math.PI * 0.8, Math.PI * 2.2);
+            ctx.closePath();
+            ctx.fill(); ctx.stroke();
+
+            // Spikes
+            ctx.beginPath(); ctx.moveTo(s*-30, s*-60); ctx.lineTo(s*-40, s*-75); ctx.lineTo(s*-50, s*-60); ctx.closePath(); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(s*0, s*-70); ctx.lineTo(s*0, s*-85); ctx.lineTo(s*10, s*-70); ctx.closePath(); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(s*30, s*-60); ctx.lineTo(s*40, s*-75); ctx.lineTo(s*50, s*-60); ctx.closePath(); ctx.fill(); ctx.stroke();
+
+            // Features
+            ctx.fillStyle = accentColor;
+            ctx.beginPath(); ctx.arc(s*-25, 0, s*10, 0, Math.PI*2); ctx.fill(); // Eye
+            ctx.strokeStyle = accentColor;
+            ctx.beginPath(); ctx.arc(s*20, s*35, s*25, 0.2, Math.PI-0.2); ctx.stroke();
+        }
+        
+        function drawVectorBear(radius, fillColor, accentColor) {
+            const s = radius / 100;
+            ctx.lineWidth = s * 7; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            ctx.fillStyle = fillColor; ctx.strokeStyle = accentColor;
+            
+            // Head
+            ctx.beginPath(); ctx.arc(0, 0, s*65, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            
+            // Ears
+            ctx.beginPath(); ctx.arc(s*-50, s*-50, s*25, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+            ctx.beginPath(); ctx.arc(s*50, s*-50, s*25, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+
+            // Snout
+            ctx.beginPath(); ctx.ellipse(0, s*15, s*30, s*25, 0, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+
+            // Features
+            ctx.fillStyle = accentColor;
+            ctx.beginPath(); ctx.arc(s*-25, s*-15, s*7, 0, Math.PI*2); ctx.fill(); // Eyes
+            ctx.beginPath(); ctx.arc(s*25, s*-15, s*7, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(0, s*10, s*12, s*8, 0, 0, Math.PI*2); ctx.fill(); // Nose
+        }
+
+        // --- Utility Functions ---
+        // FIXED: Restored blendColors function
+        function blendColors(c1, c2, ratio) { 
+            if (!c1 || !c2 || typeof c1 !== 'string' || typeof c2 !== 'string') {
+                return c1 || c2 || '#ffffff';
+            }
+            
+            const F = (h) => parseInt(h, 16), T = (d) => d.toString(16).padStart(2,'0'); 
+            const R1=F(c1.slice(1,3)),G1=F(c1.slice(3,5)),B1=F(c1.slice(5,7)); 
+            const R2=F(c2.slice(1,3)),G2=F(c2.slice(3,5)),B2=F(c2.slice(5,7)); 
+            const R=Math.round(R1+(R2-R1)*ratio),G=Math.round(G1+(G2-G1)*ratio),B=Math.round(B1+(B2-B1)*ratio); 
+            return `#${T(R)}${T(G)}${T(B)}`; 
+        }
+
+        function resizeAndDraw() { 
+            resizeCanvas(); 
+            if (!isGameOver && !isGamePaused) { 
+                updateDarkcatPosition(); 
+                draw(); 
+            } 
+        }
+        
+        function updateDarkcatPosition() { 
+            const logicalWidth = canvas.logicalWidth || canvas.width;
+            const logicalHeight = canvas.logicalHeight || canvas.height;
+            darkcat.x = logicalWidth - lightcat.x; 
+            darkcat.y = logicalHeight - lightcat.y; 
+        }
+        
+        // --- FIXED FOOD SPAWNING WITH SAFE DISTANCE ---
+        function spawnFood() {
+            const type = Math.random() < 0.5 ? 'light' : 'dark';
+            const theme = themes[currentTheme];
+            const color = (type === 'light') ? theme['--light-color'] : theme['--bg-color'];
+            
+            const safeDistance = GAME_CONFIG.CAT_RADIUS * 3;
+            let attempts = 0;
+            let x, y, lightDist, darkDist;
+            
+            do {
+                const logicalWidth = canvas.logicalWidth || canvas.width;
+                const logicalHeight = canvas.logicalHeight || canvas.height;
+                x = Math.random() * (logicalWidth - 2 * GAME_CONFIG.FOOD_RADIUS) + GAME_CONFIG.FOOD_RADIUS;
+                y = Math.random() * (logicalHeight - 2 * GAME_CONFIG.FOOD_RADIUS) + GAME_CONFIG.FOOD_RADIUS;
+                attempts++;
+                
+                if (attempts >= 50) {
+                    lastFoodSpawnTime += 500; // Delay next spawn
+                    return;
+                }
+                
+                lightDist = Math.sqrt((x - lightcat.x)**2 + (y - lightcat.y)**2);
+                darkDist = Math.sqrt((x - darkcat.x)**2 + (y - darkcat.y)**2);
+                
+            } while (isPositionInsideBarrier(x, y, GAME_CONFIG.FOOD_RADIUS) || 
+                     lightDist <= safeDistance || darkDist <= safeDistance);
+            
+            foods.push({ x, y, radius: GAME_CONFIG.FOOD_RADIUS, type, color, isDark: type === 'dark' });
+        }
+        
+        function spawnBarriers(count) { 
+            const maxAttempts = 50; 
+            for (let i = 0; i < count; i++) { 
+                let attempts = 0, valid = false, x1, y1, x2, y2; 
+                while (!valid && attempts < maxAttempts) { 
+                    const minL = GAME_CONFIG.BARRIER_MIN_LENGTH;
+                    const logicalWidth = canvas.logicalWidth || canvas.width;
+                    const logicalHeight = canvas.logicalHeight || canvas.height;
+                    const maxL = Math.min(logicalWidth, logicalHeight) * GAME_CONFIG.BARRIER_MAX_LENGTH_FACTOR; 
+                    const padding = GAME_CONFIG.CAT_RADIUS * 2 + getBaseFontSize() * 0.625; 
+                    if (Math.random() < 0.5) { 
+                        y1 = y2 = Math.random()*(logicalHeight - 2*padding) + padding; 
+                        x1 = Math.random()*(logicalWidth - minL - 2*padding) + padding; 
+                        x2 = x1 + Math.random()*(maxL - minL) + minL; 
+                    } else { 
+                        x1 = x2 = Math.random()*(logicalWidth - 2*padding) + padding; 
+                        y1 = Math.random()*(logicalHeight - minL - 2*padding) + padding; 
+                        y2 = y1 + Math.random()*(maxL - minL) + minL; 
+                    } 
+                    if (!isLineTooCloseToCats(x1, y1, x2, y2)) { 
+                        valid = true; 
+                        barriers.push({x1, y1, x2, y2}); 
+                    } 
+                    attempts++; 
+                } 
+                if (!valid) console.warn('Could not find safe position for barrier.'); 
+            } 
+        }
+        function isPositionInsideBarrier(px, py, r) { 
+            for(const b of barriers) { 
+                if (checkLineCircleCollision(b, {x: px, y: py, radius: r})) return true; 
+            } 
+            return false; 
+        }
+        
+        // --- FIXED CHAIN SYSTEM WITH PAUSE SUPPORT ---
+        function absorbFood(collidingCat) { 
+            // FIXED: Create celebration particles at the correct cat's location
+            for (let i = 0; i < 10; i++) {
+                createParticle(collidingCat.x, collidingCat.y, 'food');
+            }
+
+            nodesAbsorbedCount++; 
+            lastFoodAbsorbedTime = performance.now(); 
+            clearTimeout(chainResetTimer); 
+            chainMultiplier++; 
+            if (chainMultiplier > highestChainInGame) highestChainInGame = chainMultiplier; 
+            score += GAME_CONFIG.SCORE_PER_FOOD * chainMultiplier; 
+            
+            // New pause-aware timer
+            chainTimerStartTime = performance.now();
+            chainTimerDuration = GAME_CONFIG.CHAIN_RESET_THRESHOLD_MS;
+            chainTimerWasPaused = false;
+            
+            chainResetTimer = setTimeout(() => {
+                if (!isGameOver && !isAnimatingGameOver && !isGamePaused && !chainTimerWasPaused) {
+                    chainMultiplier = 1;
+                }
+            }, chainTimerDuration);
+        }
+        function loadHighScores() { 
+            try { 
+                const s=localStorage.getItem(LOCAL_STORAGE_KEY_ALL_TIME_HIGH); 
+                if(s) allTimeHighScore=parseInt(s,10); 
+            } catch(e) { 
+                console.error(e); 
+            } 
+            sessionHighScore = 0; 
+        }
+        function saveAllTimeHighScore() { 
+            try { 
+                localStorage.setItem(LOCAL_STORAGE_KEY_ALL_TIME_HIGH, allTimeHighScore.toString()); 
+            } catch(e) { 
+                console.error(e); 
+            } 
+        }
+        
+        window.onload = init;
+    </script>
+</body>
+</html>
+
 <style>
 /*
 Mirror Mirror - v3.5 (Relative Units & Mobile Optimized)
