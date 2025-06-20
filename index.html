@@ -17,7 +17,8 @@ Mirror Mirror - v3.5 (Relative Units & Mobile Optimized)
 - Fixed mobile overflow issues
 - Improved responsive design
 */
-:root {
+
+    :root {
         /* Base font size for scaling */
         font-size: 16px;
         
@@ -512,7 +513,8 @@ Mirror Mirror - v3.5 (Relative Units & Mobile Optimized)
 <div class="hud-score">SCORE:000000</div>
 <div class="hud-chain">CHAIN:x1</div>
 </div>
-    <button class="theme-menu-btn hidden" id="themeMenuBtn" title="Change Theme">🎨</button>
+
+<button class="theme-menu-btn hidden" id="themeMenuBtn" title="Change Theme">🎨</button>
 
     <canvas id="gameCanvas"></canvas>
     
@@ -1012,7 +1014,7 @@ Mirror Mirror - v3.5 (Relative Units & Mobile Optimized)
             canvas.addEventListener('touchstart', handleTouchStart, { passive: false }); 
             canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
         } else {
-            canvas.addEventListener('mousemove', handleMouseMove); 
+            window.addEventListener('mousemove', handleMouseMove); 
             window.addEventListener('keydown', handleKeyDown);
         }
         
@@ -1279,6 +1281,13 @@ Mirror Mirror - v3.5 (Relative Units & Mobile Optimized)
         isGamePaused = false;
         scoreSubmitted = false;
         score = 0; 
+
+        if (!isMobile()) {
+            isMouseControlActive = true;
+        } else {
+            isMouseControlActive = false;
+        }
+
         chainMultiplier = 1; 
         highestChainInGame = 0; 
         nodesAbsorbedCount = 0;
@@ -1296,6 +1305,11 @@ Mirror Mirror - v3.5 (Relative Units & Mobile Optimized)
         lightcat.x = logicalWidth / 2; 
         lightcat.y = logicalHeight / 2 - (logicalHeight * 0.1);
         updateDarkcatPosition(); 
+
+        if (!isMobile()) {
+            targetMouseX = lightcat.x;
+            targetMouseY = lightcat.y;
+        }
         
         lastFrameTime = performance.now();
         deltaAccumulator = 0;
@@ -1754,5 +1768,6 @@ Mirror Mirror - v3.5 (Relative Units & Mobile Optimized)
     
     window.onload = init;
 </script>
+
 </body>
 </html>
